@@ -43,7 +43,7 @@ def shutdown(system, graceful=False):
     # Poweroff the system via SSH
     resp = ssh(system, ['sudo', 'poweroff'])
     if resp.returncode != 0:
-        bottle.abort()
+        bottle.abort(400)
 
     # Wait some time for the system to poweroff and assume success
     time.sleep(10)
@@ -167,7 +167,7 @@ def post_ComputerSystem_Reset_serial(serial):
 
     data = json.loads(bottle.request.get_json())
     if 'ResetType' not in data:
-        bottle.abort()
+        bottle.abort(400)
 
     system = SYSTEM_LIST[serial]
     if data['ResetType'] == 'GracefulShutdown':
@@ -177,7 +177,7 @@ def post_ComputerSystem_Reset_serial(serial):
     elif data['ResetType'] == 'ForceRestart':
         reset(system, graceful=False)
     else:
-        bottle.abort()
+        bottle.abort(400)
 
 # -----------------------------------------------------------------------------
 # Main entry point
