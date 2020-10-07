@@ -1,0 +1,10 @@
+Bottle-pi is a simple REST API server that manages a bunch of Raspberry Pis.
+
+It's somewhat compliant to the Redfish API and is intended to run on a
+master Pi, that acts as a controller of 'the bunch of Raspberry Pis'.
+
+The RUN pin and GPIO4 of each Pi are connected to GPIOs of the controller Pi.
+The serial port of each Pi is also connected to the controller Pi via a
+serial-USB adapter and USB Hub.
+
+The details of how things are cabled up is specifed in bottle-pi.config
