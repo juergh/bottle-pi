@@ -21,4 +21,5 @@ release:
 
 	# Tag the release
 	version=$$(dpkg-parsechangelog -SVersion) ; \
-	git tag -s -m "bottle-pi $${version}" "v$${version}"
+	source=$$(dpkg-parsechangelog -SSource) ; \
+	git tag -s -m "$${source} $${version}" "v$${version}"
