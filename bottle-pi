@@ -111,7 +111,8 @@ def get_Images_name(name):
     if name not in IMAGE_LIST:
         bottle.abort(404)
 
-    return bottle.static_file(name, root='/srv/images')
+    image = IMAGE_LIST[name]
+    return bottle.static_file(image['filename'], root='/')
 
 # ----------------------------------------
 # Systems
@@ -197,16 +198,12 @@ if __name__ == '__main__':
     if config is None:
         raise Exception('Unable to load bottle-pi.config')
 
-    # Load the image list
-    resp = subprocess.run(['ls', '-1', '/srv/images'], capture_output=True,
-                          check=False)
-    IMAGE_LIST = str(resp.stdout).split('\n')
-
-    # The system list
     SYSTEM_LIST = config['systems']
+    IMAGE_LIST = config['images']
 
     # Use board pin numbers
     gpio.setmode(gpio.BOARD)
 
     # Run the bottle server
-    bottle.run(host='0.0.0.0', port=config['port'], reloader=args.debug, debug=args.debug)
+    bottle.run(host='0.0.0.0', port=config['port'], reloader=args.debug,
+               debug=args.debug)
