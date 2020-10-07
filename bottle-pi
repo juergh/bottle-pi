@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+#
+# A simple REST API server that manages a bunch of Raspberry Pis
+#
+
+import argparse
+import json
+import os
+import subprocess
+import time
+import yaml
+
+import bottle
+try:
+    import RPi.GPIO as gpio
+except ModuleNotFoundError:
+    class gpio():
+        BOARD = None
+        def setmode(val):  # noqa: E301 / pylint: disable=E0213
+            pass
+
+def ssh(system, cmd):
+    """
+    Run the given command on the provided system
+    """
+    ssh_cmd = ['ssh',
+               '-o', 'ConnectTimeout=2',
+               '-o', 'BatchMode=yes',
+               '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               '-o', 'User=ubuntu',
+               system['hostname']] + cmd
+    return subprocess.run(ssh_cmd, capture_output=True, check=False)
+
+def shutdown(system, graceful=False):
+    """
+    Shut down a system
+    """
+    if not graceful:
+        # Not supported (yet)
+        return
+
+    # Poweroff the system via SSH
+    resp = ssh(system, ['sudo', 'poweroff'])
+    if resp.returncode != 0:
+        bottle.abort()
+
+    # Wait some time for the system to poweroff and assume success
+    time.sleep(10)
+
+def reset(system, boottarget='Sdcard', graceful=False):
+    """
+    Reset a system
+    """
+    shutdown(system, graceful=graceful)
+
+    runpin = system['runpin']
+    gpio4 = system['gpio4']
+
+    if boottarget == 'Installer':
+        # Invoke the installer by driving the gpio4 pin
+        gpio.setup(gpio4, gpio.OUT, initial=0)
+
+    # Reset the system
+    gpio.setup(runpin, gpio.OUT, initial=0)
+    time.sleep(1)
+    gpio.cleanup(runpin)
+
+    if boottarget == 'Installer':
+        # Keep driving the gpio4 pin for a bit to give the Pi firmware enough
+        # time to sample its state
+        time.sleep(20)
+        gpio.cleanup(gpio4)
+
+# -----------------------------------------------------------------------------
+# Redfish API routes
+
+@bottle.get('/redfish')
+def get_redfish():
+    return {
+        'v1': '/redfish/v1',
+    }
+
+@bottle.get('/redfish/v1')
+@bottle.get('/redfish/v1/')  # Redfishtool wants a trailing slash
+def get_redfish_v1():
+    return {
+        '@odata.id': '/redfish/v1',
+        'Images': {
+            '@odata.id': '/redfish/v1/Images'
+        },
+        'Systems': {
+            '@odata.id': '/redfish/v1/Systems'
+        },
+    }
+
+# ----------------------------------------
+# Images
+
+@bottle.get('/redfish/v1/Images')
+def get_Images():
+    return {
+        '@odata.id': '/redfish/v1/Images',
+        'Members@odata.count': len(IMAGE_LIST),
+        'Members': [{'@odata.id': '/redfish/v1/Images/' + image}
+                    for image in IMAGE_LIST],
+    }
+
+@bottle.get('/redfish/v1/Images/<name>')
+def get_Images_name(name):
+    if name not in IMAGE_LIST:
+        bottle.abort(404)
+
+    return bottle.static_file(name, root='/srv/images')
+
+# ----------------------------------------
+# Systems
+
+@bottle.get('/redfish/v1/Systems')
+def get_Systems():
+    return {
+        '@odata.id': '/redfish/v1/Systems',
+        'Members@odata.count': len(SYSTEM_LIST),
+        'Members': [{'@odata.id': '/redfish/v1/Systems/' + serial}
+                    for serial in SYSTEM_LIST.keys()],
+    }
+
+@bottle.get('/redfish/v1/Systems/<serial>')
+def get_Systems_serial(serial):
+    if serial not in SYSTEM_LIST:
+        bottle.abort(404)
+
+    system = SYSTEM_LIST[serial]
+    return {
+        '@odata.id': '/redfish/v1/Systems/' + serial,
+        'Id': serial,
+        'SerialNumber': serial,
+        'Model': system['model'],
+        'HostName': system['hostname'],
+        'PowerState': 'On',
+        'Boot': {
+            'BootSourceOverrideEnabled': 'Once',
+            'BootSourceOverrideMode': 'Gpio4',
+            'BootSourceOverrideTarget': 'SdCard',
+            'BootSourceOverrideTarget@Redfish.AllowableValues': [
+                'SdCard',
+                'Installer',
+            ],
+        },
+        'Actions': {
+            '#ComputerSystem.Reset': {
+                'target': '/redfish/v1/Systems/' + serial +
+                          '/Actions/ComputerSystem.Reset',
+                'ResetType@Redfish.AllowableValues': [
+                    'GracefulShutdown',
+                    'GracefulRestart',
+                    'ForceRestart',
+                ],
+            },
+        },
+    }
+
+@bottle.post('/redfish/v1/Systems/<serial>/Actions/ComputerSystem.Reset')
+def post_ComputerSystem_Reset_serial(serial):
+    if serial not in SYSTEM_LIST:
+        bottle.abort(404)
+
+    data = json.loads(bottle.request.get_json())
+    if 'ResetType' not in data:
+        bottle.abort()
+
+    system = SYSTEM_LIST[serial]
+    if data['ResetType'] == 'GracefulShutdown':
+        shutdown(system, graceful=True)
+    elif data['ResetType'] == 'GracefulRestart':
+        reset(system, graceful=True)
+    elif data['ResetType'] == 'ForceRestart':
+        reset(system, graceful=False)
+    else:
+        bottle.abort()
+
+# -----------------------------------------------------------------------------
+# Main entry point
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--debug", action='store_true')
+    args = parser.parse_args()
+
+    # Load the config file
+    config = None
+    for f in ['./bottle-pi.config', '/etc/bottle-pi.config']:
+        if os.path.exists(f):
+            with open(f) as fh:
+                config = yaml.load(fh, Loader=yaml.SafeLoader)
+            break
+    if config is None:
+        raise Exception('Unable to load bottle-pi.config')
+
+    # Load the image list
+    resp = subprocess.run(['ls', '-1', '/srv/images'], capture_output=True,
+                          check=False)
+    IMAGE_LIST = str(resp.stdout).split('\n')
+
+    # The system list
+    SYSTEM_LIST = config['systems']
+
+    # Use board pin numbers
+    gpio.setmode(gpio.BOARD)
+
+    # Run the bottle server
+    bottle.run(host='0.0.0.0', port=config['port'], reloader=args.debug, debug=args.debug)

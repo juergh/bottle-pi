@@ -1,0 +1,13 @@
+Source: bottle-pi
+Section: unknown
+Priority: optional
+Maintainer: Juerg Haefliger <juergh@canonical.com>
+Build-Depends: debhelper-compat (= 12)
+Standards-Version: 4.4.1
+Homepage: https://github.com/juergh/bottle-pi
+
+Package: bottle-pi
+Architecture: all
+Depends: ${misc:Depends}, python3
+Description: REST API server to manage a bunch of Raspberry Pis
+ REST API server to manage a bunch of Raspberry Pis

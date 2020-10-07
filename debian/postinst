@@ -1,0 +1,16 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = "configure" ] ; then
+	if ! getent group bottle-pi >/dev/null ; then
+		groupadd bottle-pi
+	fi
+	if ! getent passwd bottle-pi >/dev/null ; then
+		useradd -g bottle-pi -G bottle-pi,gpio bottle-pi
+	fi
+fi
+
+#DEBHELPER#
+
+exit 0
