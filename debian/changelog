@@ -1,3 +1,17 @@
+bottle-pi (0.0.2) unstable; urgency=medium
+
+  * Automatically commit debian/changelog when closing a release
+  * Fix the json loading of POST body data
+  * Add additional RPi.GPIO mockup methods and variables for testing
+  * Get the source package name from the changelog
+  * Define the list of available images in the config file
+  * Add python3 dependencies
+  * Add Makefile
+  * Return HTTP status code 400 for bad or failed requests
+  * Add README
+
+ -- Juerg Haefliger <juergh@canonical.com>  Thu, 08 Oct 2020 12:39:49 +0200
+
 bottle-pi (0.0.1) unstable; urgency=medium
 
   * Initial release.
