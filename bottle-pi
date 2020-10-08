@@ -171,7 +171,7 @@ def post_ComputerSystem_Reset_serial(serial):
     if serial not in SYSTEM_LIST:
         bottle.abort(404)
 
-    data = json.loads(bottle.request.get_json())
+    data = json.load(bottle.request.body)
     if 'ResetType' not in data:
         bottle.abort(400)
 
