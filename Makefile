@@ -19,7 +19,8 @@ release:
 	# Close the release
 	dch -r --distribution unstable ''
 
-	# Tag the release
+	# Commit and tag the release
 	version=$$(dpkg-parsechangelog -SVersion) ; \
 	source=$$(dpkg-parsechangelog -SSource) ; \
-	git tag -s -m "$${source} $${version}" "v$${version}"
+	git commit -s -m "$${source} v$${version}" -- debian/changelog ; \
+	git tag -s -m "$${source} v$${version}" "v$${version}"
