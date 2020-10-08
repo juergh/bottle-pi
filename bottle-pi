@@ -16,7 +16,12 @@ try:
 except ModuleNotFoundError:
     class gpio():
         BOARD = None
+        OUT = None
         def setmode(val):  # noqa: E301 / pylint: disable=E0213
+            pass
+        def setup(pin, val, initial=None):  # noqa: E301 / pylint: disable=E0213
+            pass
+        def cleanup(pin):  # noqa: E301 / pylint: disable=E0213
             pass
 
 def ssh(system, cmd):
