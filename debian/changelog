@@ -1,3 +1,11 @@
+bottle-pi (0.0.3) unstable; urgency=medium
+
+  * Add more images to the config file
+  * Use the bottle-pi user for SSH
+  * Add support for BootSourceOverrideTarget
+
+ -- Juerg Haefliger <juergh@canonical.com>  Fri, 09 Oct 2020 09:38:51 +0200
+
 bottle-pi (0.0.2) unstable; urgency=medium
 
   * Automatically commit debian/changelog when closing a release
