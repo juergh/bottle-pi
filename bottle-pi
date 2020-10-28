@@ -24,6 +24,8 @@ except ModuleNotFoundError:
         def cleanup(pin):  # noqa: E301 / pylint: disable=E0213
             pass
 
+app = bottle.Bottle()
+
 def ssh(name, cmd):
     """
     Run the given command on the provided system
@@ -85,14 +87,14 @@ def reset(name, graceful=False):
 # -----------------------------------------------------------------------------
 # Redfish API routes
 
-@bottle.get('/redfish')
+@app.get('/redfish')
 def get_redfish():
     return {
         'v1': '/redfish/v1',
     }
 
-@bottle.get('/redfish/v1')
-@bottle.get('/redfish/v1/')  # Redfishtool wants a trailing slash
+@app.get('/redfish/v1')
+@app.get('/redfish/v1/')  # Redfishtool wants a trailing slash
 def get_redfish_v1():
     return {
         '@odata.id': '/redfish/v1',
@@ -107,7 +109,7 @@ def get_redfish_v1():
 # ----------------------------------------
 # Images
 
-@bottle.get('/redfish/v1/Images')
+@app.get('/redfish/v1/Images')
 def get_Images():
     return {
         '@odata.id': '/redfish/v1/Images',
@@ -116,7 +118,7 @@ def get_Images():
                     for image in IMAGES],
     }
 
-@bottle.get('/redfish/v1/Images/<name>')
+@app.get('/redfish/v1/Images/<name>')
 def get_Images_name(name):
     if name not in IMAGES:
         bottle.abort(404)
@@ -128,7 +130,7 @@ def get_Images_name(name):
 # ----------------------------------------
 # Systems
 
-@bottle.get('/redfish/v1/Systems')
+@app.get('/redfish/v1/Systems')
 def get_Systems():
     return {
         '@odata.id': '/redfish/v1/Systems',
@@ -137,7 +139,7 @@ def get_Systems():
                     for name in SYSTEMS.keys()],
     }
 
-@bottle.get('/redfish/v1/Systems/<name>')
+@app.get('/redfish/v1/Systems/<name>')
 def get_Systems_name(name):
     if name not in SYSTEMS:
         bottle.abort(404)
@@ -174,7 +176,7 @@ def get_Systems_name(name):
         },
     }
 
-@bottle.post('/redfish/v1/Systems/<name>')
+@app.post('/redfish/v1/Systems/<name>')
 def post_Systems_name(name):
     if name not in SYSTEMS:
         bottle.abort(404)
@@ -187,7 +189,7 @@ def post_Systems_name(name):
     # Set the boot target for the specified system
     SYSTEMS[name]['boot_target'] = boot_target
 
-@bottle.post('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Reset')
+@app.post('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Reset')
 def post_ComputerSystem_Reset_name(name):
     if name not in SYSTEMS:
         bottle.abort(404)
@@ -230,5 +232,5 @@ if __name__ == '__main__':
     gpio.setmode(gpio.BOARD)
 
     # Run the bottle server
-    bottle.run(host='0.0.0.0', port=config['port'], reloader=args.debug,
+    bottle.run(app, host='0.0.0.0', port=config['port'], reloader=args.debug,
                debug=args.debug)
