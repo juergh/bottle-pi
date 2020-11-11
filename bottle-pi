@@ -183,7 +183,7 @@ def post_Systems_name(name):
 
     data = json.load(bottle.request.body)
     boot_target = data.get('Boot', {}).get('BootSourceOverrideTarget', '')
-    if boot_target not in ['Sdcard', 'Installer']:
+    if boot_target and boot_target not in ['Sdcard', 'Installer']:
         bottle.abort(400)
 
     # Set the boot target for the specified system
