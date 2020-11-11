@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+import sys
+
+import requests
+
+# -----------------------------------------------------------------------------
+# Subcommand helper functions
+
+def _dec(name, *args, **kwargs):
+    def _decorator(func):
+        # Because of the sematics of decorator composition if we just append
+        # to the options list positional options will appear to be backwards.
+        func.__dict__.setdefault(name, []).insert(0, (args, kwargs))
+        return func
+    return _decorator
+
+
+def add_help(*args, **kwargs):
+    return _dec('help', *args, **kwargs)
+
+def add_arg(*args, **kwargs):
+    return _dec('arg', *args, **kwargs)
+
+# -----------------------------------------------------------------------------
+# Subcommands
+
+@add_help('List images')
+def do_image_list(args):
+    r = requests.get(args.host + '/Images')
+    r.raise_for_status()
+    print(json.dumps(r.json(), indent=4, sort_keys=True))
+
+@add_help('Get image')
+@add_arg('image', help='Image name')
+def do_image_get(args):
+    with requests.get(args.host + '/Images/' + args.image) as r:
+        r.raise_for_status()
+        for chunk in r.iter_content(chunk_size=1024):
+            sys.stdout.buffer.write(chunk)
+
+@add_help('List systems')
+def do_system_list(args):
+    r = requests.get(args.host + '/Systems')
+    r.raise_for_status()
+    print(json.dumps(r.json(), indent=4, sort_keys=True))
+
+@add_help('Show system details')
+@add_arg('system', help='System name')
+def do_system_show(args):
+    r = requests.get(args.host + '/Systems/' + args.system)
+    r.raise_for_status()
+    print(json.dumps(r.json(), indent=4, sort_keys=True))
+
+@add_help('Reset system')
+@add_arg('system', help='System name')
+@add_arg('-b', '--boot_target', choices=['sdcard', 'installer'],
+         default='sdcard', help='Boot target (default: sdcard)')
+@add_arg('-r', '--reset_type', choices=['hard', 'soft'],
+         default='hard', help='Reset type (default: hard)')
+def do_system_reset(args):
+    boot_target_map = {
+        'sdcard': 'Sdcard',
+        'installer': 'Installer',
+    }
+    reset_type_map = {
+        'hard': 'ForceRestart',
+        'soft': 'GracefulRestart',
+    }
+
+    # Set the boot target
+    r = requests.post(args.host + '/Systems/' + args.system,
+                      json={'Boot': {'BootSourceOverrideTarget':
+                                     boot_target_map[args.boot_target]}})
+    r.raise_for_status()
+
+    # Reset the system
+    r = requests.post(args.host + '/Systems/' + args.system +
+                      '/Actions/ComputerSystem.Reset',
+                      json={'ResetType': reset_type_map[args.reset_type]})
+    r.raise_for_status()
+
+# -----------------------------------------------------------------------------
+# Main entry point
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('host', metavar='host[:port]',
+                        help='Remote bottle-pi host (and port)')
+
+    # Add subparsers for the subcommands and walk through the 'do_' functions
+    subparsers = parser.add_subparsers(dest='subcommand', title='subcommands',
+                                       required=True)
+    module = sys.modules[__name__]
+    for attr in (a for a in dir(module) if a.startswith('do_')):
+        cmd_name = attr[3:].replace('_', '-')
+        cmd_cb = getattr(module, attr)
+        cmd_desc = cmd_cb.__doc__ or ''
+        cmd_help = getattr(cmd_cb, 'help', [])
+        cmd_args = getattr(cmd_cb, 'arg', [])
+
+        sparser = subparsers.add_parser(cmd_name, help=cmd_help[0][0][0],
+                                        description=cmd_desc, add_help=False)
+        sparser.add_argument('-h', '--help', action='help')
+        for (args, kwargs) in cmd_args:
+            sparser.add_argument(*args, **kwargs)
+        sparser.set_defaults(func=cmd_cb)
+
+    # Parse the arguments
+    args = parser.parse_args()
+    if not args.host.startswith('http://'):
+        args.host = 'http://' + args.host
+    args.host = args.host + '/redfish/v1'
+
+    # Call the subcommand
+    args.func(args)
