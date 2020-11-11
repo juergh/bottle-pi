@@ -225,8 +225,16 @@ if __name__ == '__main__':
     if config is None:
         raise Exception('Unable to load bottle-pi.config')
 
+    # The list of available systems
     SYSTEMS = config['systems']
-    IMAGES = config['images']
+
+    # The list of available images
+    IMAGES = {}
+    images_pathname = config['images']['pathname']
+    for name in os.listdir(images_pathname):
+        image_filename = os.path.join(images_pathname, name)
+        if os.path.isfile(image_filename):
+            IMAGES[name] = {'filename': image_filename}
 
     # Use board pin numbers
     gpio.setmode(gpio.BOARD)
