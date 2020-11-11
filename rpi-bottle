@@ -71,15 +71,20 @@ def do_system_reset(args):
     }
 
     # Set the boot target
-    r = requests.post(args.host + '/Systems/' + args.system,
-                      json={'Boot': {'BootSourceOverrideTarget':
-                                     boot_target_map[args.boot_target]}})
+    data = {
+        'Boot': {
+            'BootSourceOverrideTarget': boot_target_map[args.boot_target]
+        }
+    }
+    r = requests.post(args.host + '/Systems/' + args.system, json=data)
     r.raise_for_status()
 
     # Reset the system
+    data = {
+        'ResetType': reset_type_map[args.reset_type]
+    }
     r = requests.post(args.host + '/Systems/' + args.system +
-                      '/Actions/ComputerSystem.Reset',
-                      json={'ResetType': reset_type_map[args.reset_type]})
+                      '/Actions/ComputerSystem.Reset', json=data)
     r.raise_for_status()
 
 # -----------------------------------------------------------------------------

@@ -114,8 +114,9 @@ def get_Images():
     return {
         '@odata.id': '/redfish/v1/Images',
         'Members@odata.count': len(IMAGES),
-        'Members': [{'@odata.id': '/redfish/v1/Images/' + image}
-                    for image in IMAGES],
+        'Members': [
+            {'@odata.id': '/redfish/v1/Images/' + name} for name in IMAGES
+        ],
     }
 
 @app.get('/redfish/v1/Images/<name>')
@@ -135,8 +136,9 @@ def get_Systems():
     return {
         '@odata.id': '/redfish/v1/Systems',
         'Members@odata.count': len(SYSTEMS),
-        'Members': [{'@odata.id': '/redfish/v1/Systems/' + name}
-                    for name in SYSTEMS.keys()],
+        'Members': [
+            {'@odata.id': '/redfish/v1/Systems/' + name} for name in SYSTEMS
+        ],
     }
 
 @app.get('/redfish/v1/Systems/<name>')
@@ -212,7 +214,7 @@ def post_ComputerSystem_Reset_name(name):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--debug", action='store_true')
+    parser.add_argument('-d', '--debug', action='store_true')
     args = parser.parse_args()
 
     # Load the config file
