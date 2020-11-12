@@ -177,14 +177,12 @@ def post_ComputerSystem_Reset_name(name):
         bottle.abort(404)
 
     data = json.load(bottle.request.body)
-    if 'ResetType' not in data:
-        bottle.abort(400)
-
-    if data['ResetType'] == 'GracefulShutdown':
+    reset_type = data.get('ResetType', '')
+    if reset_type == 'GracefulShutdown':
         shutdown(name, graceful=True)
-    elif data['ResetType'] == 'GracefulRestart':
+    elif reset_type == 'GracefulRestart':
         reset(name, graceful=True)
-    elif data['ResetType'] == 'ForceRestart':
+    elif reset_type == 'ForceRestart':
         reset(name, graceful=False)
     else:
         bottle.abort(400)
