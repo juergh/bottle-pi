@@ -56,28 +56,13 @@ def do_system_show(args):
 
 @add_help('Reset system')
 @add_arg('system', help='System name')
-@add_arg('-b', '--boot_target', choices=['sdcard', 'installer'],
-         default='sdcard', help='Boot target (default: sdcard)')
 @add_arg('-r', '--reset_type', choices=['hard', 'soft'],
          default='hard', help='Reset type (default: hard)')
 def do_system_reset(args):
-    boot_target_map = {
-        'sdcard': 'Sdcard',
-        'installer': 'Installer',
-    }
     reset_type_map = {
         'hard': 'ForceRestart',
         'soft': 'GracefulRestart',
     }
-
-    # Set the boot target
-    data = {
-        'Boot': {
-            'BootSourceOverrideTarget': boot_target_map[args.boot_target]
-        }
-    }
-    r = requests.post(args.host + '/Systems/' + args.system, json=data)
-    r.raise_for_status()
 
     # Reset the system
     data = {
@@ -85,6 +70,14 @@ def do_system_reset(args):
     }
     r = requests.post(args.host + '/Systems/' + args.system +
                       '/Actions/ComputerSystem.Reset', json=data)
+    r.raise_for_status()
+
+@add_help('Update system')
+@add_arg('system', help='System name')
+def do_system_update(args):
+    # Update the system (invoke the installer)
+    r = requests.post(args.host + '/Systems/' + args.system +
+                      '/Actions/ComputerSystem.Update')
     r.raise_for_status()
 
 # -----------------------------------------------------------------------------
@@ -117,7 +110,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if not args.host.startswith('http://'):
         args.host = 'http://' + args.host
-    args.host = args.host + '/redfish/v1'
+    args.host = args.host.rstrip('/') + '/redfish/v1'
 
     # Call the subcommand
     args.func(args)

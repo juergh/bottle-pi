@@ -64,9 +64,9 @@ def reset(name, graceful=False):
     system = SYSTEMS[name]
     runpin = system['runpin']
     gpio4 = system['gpio4']
-    boot_target = system.get('boot_target', '')
+    update = system.get('update', False)
 
-    if boot_target == 'Installer':
+    if update:
         # Invoke the installer by driving the gpio4 pin
         gpio.setup(gpio4, gpio.OUT, initial=0)
 
@@ -75,14 +75,14 @@ def reset(name, graceful=False):
     time.sleep(1)
     gpio.cleanup(runpin)
 
-    if boot_target == 'Installer':
+    if update:
         # Keep driving the gpio4 pin for a bit to give the Pi firmware enough
         # time to sample its state
         time.sleep(20)
         gpio.cleanup(gpio4)
 
-    # Boot target is a one-time-thing so reset it
-    system['boot_target'] = 'Sdcard'
+    # The update flag is a one-time thing so reset it
+    system['update'] = False
 
 # -----------------------------------------------------------------------------
 # Redfish API routes
@@ -147,8 +147,6 @@ def get_Systems_name(name):
         bottle.abort(404)
 
     system = SYSTEMS[name]
-    boot_target = system.get('boot_target', 'Sdcard')
-
     return {
         '@odata.id': '/redfish/v1/Systems/' + name,
         'Id': name,
@@ -156,15 +154,6 @@ def get_Systems_name(name):
         'Model': system['model'],
         'HostName': system['hostname'],
         'PowerState': 'On',
-        'Boot': {
-            'BootSourceOverrideEnabled': 'Once',
-            'BootSourceOverrideMode': 'Gpio4',
-            'BootSourceOverrideTarget': boot_target,
-            'BootSourceOverrideTarget@Redfish.AllowableValues': [
-                'Sdcard',
-                'Installer',
-            ],
-        },
         'Actions': {
             '#ComputerSystem.Reset': {
                 'target': '/redfish/v1/Systems/' + name +
@@ -175,21 +164,12 @@ def get_Systems_name(name):
                     'ForceRestart',
                 ],
             },
+            '#ComputerSystem.Update': {
+                'target': '/redfish/v1/Systems/' + name +
+                          '/Actions/ComputerSystem.Update',
+            },
         },
     }
-
-@app.post('/redfish/v1/Systems/<name>')
-def post_Systems_name(name):
-    if name not in SYSTEMS:
-        bottle.abort(404)
-
-    data = json.load(bottle.request.body)
-    boot_target = data.get('Boot', {}).get('BootSourceOverrideTarget', '')
-    if boot_target and boot_target not in ['Sdcard', 'Installer']:
-        bottle.abort(400)
-
-    # Set the boot target for the specified system
-    SYSTEMS[name]['boot_target'] = boot_target
 
 @app.post('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Reset')
 def post_ComputerSystem_Reset_name(name):
@@ -208,6 +188,14 @@ def post_ComputerSystem_Reset_name(name):
         reset(name, graceful=False)
     else:
         bottle.abort(400)
+
+@app.post('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update')
+def post_ComputerSystem_Update_name(name):
+    if name not in SYSTEMS:
+        bottle.abort(404)
+
+    SYSTEMS[name]['update'] = True
+    reset(name, graceful=False)
 
 # -----------------------------------------------------------------------------
 # Main entry point
