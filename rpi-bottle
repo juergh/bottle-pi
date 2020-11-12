@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+#
+# A simple CLI to drive the bottle-pi REST API server
+#
 
 import argparse
 import json
@@ -7,7 +10,7 @@ import sys
 import requests
 
 # -----------------------------------------------------------------------------
-# Subcommand helper functions
+# Helper functions
 
 def _dec(name, *args, **kwargs):
     def _decorator(func):
@@ -24,6 +27,9 @@ def add_help(*args, **kwargs):
 def add_arg(*args, **kwargs):
     return _dec('arg', *args, **kwargs)
 
+def print_json(data):
+    print(json.dumps(data, indent=4, sort_keys=True))
+
 # -----------------------------------------------------------------------------
 # Subcommands
 
@@ -31,7 +37,7 @@ def add_arg(*args, **kwargs):
 def do_image_list(args):
     r = requests.get(args.host + '/Images')
     r.raise_for_status()
-    print(json.dumps(r.json(), indent=4, sort_keys=True))
+    print_json(r.json())
 
 @add_help('Get image')
 @add_arg('image', help='Image name')
@@ -45,14 +51,14 @@ def do_image_get(args):
 def do_system_list(args):
     r = requests.get(args.host + '/Systems')
     r.raise_for_status()
-    print(json.dumps(r.json(), indent=4, sort_keys=True))
+    print_json(r.json())
 
 @add_help('Show system details')
 @add_arg('system', help='System name')
 def do_system_show(args):
     r = requests.get(args.host + '/Systems/' + args.system)
     r.raise_for_status()
-    print(json.dumps(r.json(), indent=4, sort_keys=True))
+    print_json(r.json())
 
 @add_help('Reset system')
 @add_arg('system', help='System name')
@@ -66,7 +72,7 @@ def do_system_reset(args):
 
     # Reset the system
     data = {
-        'ResetType': reset_type_map[args.reset_type]
+        'ResetType': reset_type_map[args.reset_type],
     }
     r = requests.post(args.host + '/Systems/' + args.system +
                       '/Actions/ComputerSystem.Reset', json=data)
@@ -74,10 +80,33 @@ def do_system_reset(args):
 
 @add_help('Update system')
 @add_arg('system', help='System name')
+@add_arg('image', help='Image name', nargs='?')
 def do_system_update(args):
-    # Update the system (invoke the installer)
+    data = None
+    if args.image:
+        data = {
+            'Image': '/redfish/v1/Images/' + args.image,
+        }
+
+    # Update the system
     r = requests.post(args.host + '/Systems/' + args.system +
-                      '/Actions/ComputerSystem.Update')
+                      '/Actions/ComputerSystem.Update', json=data)
+    r.raise_for_status()
+
+@add_help('Show system update details')
+@add_arg('system', help='System name')
+def do_system_update_show(args):
+    r = requests.get(args.host + '/Systems/' + args.system +
+                     '/Actions/ComputerSystem.Update')
+    r.raise_for_status()
+    print_json(r.json())
+
+
+@add_help('Clear system update details')
+@add_arg('system', help='System name')
+def do_system_update_clear(args):
+    r = requests.delete(args.host + '/Systems/' + args.system +
+                        '/Actions/ComputerSystem.Update')
     r.raise_for_status()
 
 # -----------------------------------------------------------------------------

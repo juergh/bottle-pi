@@ -55,7 +55,7 @@ def shutdown(name, graceful=False):
     # Wait some time for the system to poweroff and assume success
     time.sleep(10)
 
-def reset(name, graceful=False):
+def reset(name, graceful=False, update=False):
     """
     Reset a system
     """
@@ -64,7 +64,6 @@ def reset(name, graceful=False):
     system = SYSTEMS[name]
     runpin = system['runpin']
     gpio4 = system['gpio4']
-    update = system.get('update', False)
 
     if update:
         # Invoke the installer by driving the gpio4 pin
@@ -80,9 +79,6 @@ def reset(name, graceful=False):
         # time to sample its state
         time.sleep(20)
         gpio.cleanup(gpio4)
-
-    # The update flag is a one-time thing so reset it
-    system['update'] = False
 
 # -----------------------------------------------------------------------------
 # Redfish API routes
@@ -125,7 +121,6 @@ def get_Images_name(name):
         bottle.abort(404)
 
     image = IMAGES[name]
-
     return bottle.static_file(image['filename'], root='/')
 
 # ----------------------------------------
@@ -167,6 +162,9 @@ def get_Systems_name(name):
             '#ComputerSystem.Update': {
                 'target': '/redfish/v1/Systems/' + name +
                           '/Actions/ComputerSystem.Update',
+                'Image@Redfish.AllowableValues': [
+                    '/redfish/v1/Images/' + name for name in IMAGES
+                ],
             },
         },
     }
@@ -176,14 +174,18 @@ def post_ComputerSystem_Reset_name(name):
     if name not in SYSTEMS:
         bottle.abort(404)
 
-    data = json.load(bottle.request.body)
+    try:
+        data = json.load(bottle.request.body)
+    except json.decoder.JSONDecodeError:
+        data = {}
+
     reset_type = data.get('ResetType', '')
     if reset_type == 'GracefulShutdown':
         shutdown(name, graceful=True)
     elif reset_type == 'GracefulRestart':
-        reset(name, graceful=True)
+        reset(name, graceful=True, update=False)
     elif reset_type == 'ForceRestart':
-        reset(name, graceful=False)
+        reset(name, graceful=False, update=False)
     else:
         bottle.abort(400)
 
@@ -192,8 +194,37 @@ def post_ComputerSystem_Update_name(name):
     if name not in SYSTEMS:
         bottle.abort(404)
 
-    SYSTEMS[name]['update'] = True
-    reset(name, graceful=False)
+    try:
+        data = json.load(bottle.request.body)
+    except json.decoder.JSONDecodeError:
+        data = {}
+
+    image = data.get('Image', '')
+    if image and (os.path.dirname(image) != '/redfish/v1/Images' or
+                  os.path.basename(image) not in IMAGES):
+        bottle.abort(400)
+
+    SYSTEMS[name]['update_image'] = image
+    reset(name, graceful=False, update=True)
+
+@app.get('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update')
+def get_ComputerSystem_Update_name(name):
+    if name not in SYSTEMS:
+        bottle.abort(404)
+
+    system = SYSTEMS[name]
+    return {
+        '@odata.id': '/redfish/v1/Systems/' + name +
+                     '/Actions/ComputerSystem.Update',
+        'Image': system.get('update_image', ''),
+    }
+
+@app.delete('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update')
+def delete_ComputerSystem_Update_name(name):
+    if name not in SYSTEMS:
+        bottle.abort(404)
+
+    SYSTEMS[name]['update_image'] = ''
 
 # -----------------------------------------------------------------------------
 # Main entry point
