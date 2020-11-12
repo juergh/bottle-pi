@@ -24,12 +24,3 @@ release:
 	version=$$(dpkg-parsechangelog -SVersion) ; \
 	git commit -s -m "$${source} v$${version}" -- debian/changelog ; \
 	git tag -s -m "$${source} v$${version}" "v$${version}"
-
-publish:
-	source=$$(dpkg-parsechangelog -SSource) ; \
-	version=$$(dpkg-parsechangelog -SVersion) ; \
-	deb=$${source}_$${version}_all.deb ; \
-	scp "../$${deb}" rpi-master: ; \
-	ssh rpi-master "sudo mv $${deb} /var/www/html/debian/pool ; \
-	                cd /var/www/html/debian ; \
-	                sudo ./update"
