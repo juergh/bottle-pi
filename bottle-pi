@@ -229,6 +229,10 @@ def delete_ComputerSystem_Update_name(name):
 
     SYSTEMS[name]['update_status'] = ''
 
+@app.get('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update.Delete')
+def get_ComputerSystem_Update_Delete_name(name):
+    delete_ComputerSystem_Update_name(name)
+
 # -----------------------------------------------------------------------------
 # Main entry point
 
