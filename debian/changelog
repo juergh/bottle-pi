@@ -1,3 +1,9 @@
+bottle-pi (0.0.5) unstable; urgency=medium
+
+  * Add a GET alias for DELETE ComputerSystem.Update
+
+ -- Juerg Haefliger <juergh@canonical.com>  Fri, 13 Nov 2020 10:08:09 +0100
+
 bottle-pi (0.0.4) unstable; urgency=medium
 
   * Add a 'Status' attribute to ComputerSystem.Update
