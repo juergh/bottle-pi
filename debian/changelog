@@ -1,3 +1,22 @@
+bottle-pi (0.0.4) unstable; urgency=medium
+
+  * Add a 'Status' attribute to ComputerSystem.Update
+  * Update .gitignore
+  * Add semicolons after last dict elements
+  * Remove 'publish' make target
+  * Add support for updating a server with a specific image
+  * Non-functional coding style changes
+  * Replace BootSourceOverride with a new action ComputerSystem.Update
+  * Non-functional style changes
+  * Initial commit of rpi-bottle
+  * Only abort if BootSourceOverrideTarget is non-empty
+  * Determine the list of available images when the server starts
+  * Use a declared application object rather than the global one
+  * Add raspios images to the config file
+  * Add a publish make target
+
+ -- Juerg Haefliger <juergh@canonical.com>  Fri, 13 Nov 2020 09:06:49 +0100
+
 bottle-pi (0.0.3) unstable; urgency=medium
 
   * Add more images to the config file
