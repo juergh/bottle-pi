@@ -1,1 +1,7 @@
 *~
+debian/.debhelper/
+debian/bottle-pi.postrm.debhelper
+debian/bottle-pi.substvars
+debian/bottle-pi/
+debian/debhelper-build-stamp
+debian/files
