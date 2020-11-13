@@ -95,10 +95,10 @@ def get_redfish_v1():
     return {
         '@odata.id': '/redfish/v1',
         'Images': {
-            '@odata.id': '/redfish/v1/Images'
+            '@odata.id': '/redfish/v1/Images',
         },
         'Systems': {
-            '@odata.id': '/redfish/v1/Systems'
+            '@odata.id': '/redfish/v1/Systems',
         },
     }
 
