@@ -8,6 +8,6 @@ Homepage: https://github.com/juergh/bottle-pi
 
 Package: bottle-pi
 Architecture: all
-Depends: ${misc:Depends}, python3, python3-bottle, python3-rpi.gpio, python3-yaml
+Depends: ${misc:Depends}, python3, python3-bottle, python3-rpi.gpio, python3-yaml, python3-cherrypy3
 Description: REST API server to manage a bunch of Raspberry Pis
  REST API server to manage a bunch of Raspberry Pis

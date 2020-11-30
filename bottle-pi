@@ -11,6 +11,8 @@ import time
 import yaml
 
 import bottle
+import cherrypy
+
 try:
     import RPi.GPIO as gpio
 except ModuleNotFoundError:
@@ -266,5 +268,5 @@ if __name__ == '__main__':
     gpio.setmode(gpio.BOARD)
 
     # Run the bottle server
-    bottle.run(app, host='0.0.0.0', port=config['port'], reloader=args.debug,
-               debug=args.debug)
+    bottle.run(app, host='0.0.0.0', port=config['port'], server='cherrypy',
+               reloader=args.debug, debug=args.debug)
