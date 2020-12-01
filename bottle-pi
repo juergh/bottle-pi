@@ -11,7 +11,7 @@ import time
 import yaml
 
 import bottle
-import cherrypy
+import cherrypy  # noqa: F401 / pylint: disable=W0611
 
 try:
     import RPi.GPIO as gpio
@@ -28,7 +28,7 @@ except ModuleNotFoundError:
 
 app = bottle.Bottle()
 
-def ssh(name, cmd):
+def ssh(system, cmd):
     """
     Run the given command on the provided system
     """
@@ -38,10 +38,10 @@ def ssh(name, cmd):
                '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
                '-o', 'User=bottle-pi',
-               SYSTEMS[name]['hostname']] + cmd
+               system['hostname']] + cmd
     return subprocess.run(ssh_cmd, capture_output=True, check=False)
 
-def shutdown(name, graceful=False):
+def shutdown(system, graceful=False):
     """
     Shut down a system
     """
@@ -50,20 +50,19 @@ def shutdown(name, graceful=False):
         return
 
     # Poweroff the system via SSH
-    resp = ssh(name, ['sudo', 'poweroff'])
+    resp = ssh(system, ['sudo', 'poweroff'])
     if resp.returncode != 0:
         bottle.abort(400)
 
     # Wait some time for the system to poweroff and assume success
     time.sleep(10)
 
-def reset(name, graceful=False, update=False):
+def reset(system, graceful=False, update=False):
     """
     Reset a system
     """
-    shutdown(name, graceful=graceful)
+    shutdown(system, graceful=graceful)
 
-    system = SYSTEMS[name]
     runpin = system['runpin']
     gpio4 = system['gpio4']
 
@@ -107,6 +106,15 @@ def get_redfish_v1():
 # ----------------------------------------
 # Images
 
+def IMAGES_get(name):
+    """
+    Return an image dict
+    """
+    if name in IMAGES:
+        return IMAGES[name]
+    bottle.abort(404)
+    return {}
+
 @app.get('/redfish/v1/Images')
 def get_Images():
     return {
@@ -119,35 +127,45 @@ def get_Images():
 
 @app.get('/redfish/v1/Images/<name>')
 def get_Images_name(name):
-    if name not in IMAGES:
-        bottle.abort(404)
-
-    image = IMAGES[name]
+    image = IMAGES_get(name)
     return bottle.static_file(image['filename'], root='/')
 
 # ----------------------------------------
 # Systems
 
+def SYSTEMS_get(name):
+    """
+    Return a system dict
+    """
+    if name in SYSTEMS:
+        return SYSTEMS[name]
+    for _, system in SYSTEMS.items():
+        if system['hostname'] == name:
+            return system
+    bottle.abort(404)
+    return {}
+
 @app.get('/redfish/v1/Systems')
 def get_Systems():
+    members = []
+    for name, system in SYSTEMS.items():
+        members.append({
+            '@odata.id': '/redfish/v1/Systems/' + name,
+            'alias': '/redfish/v1/Systems/' + system['hostname'],
+        })
     return {
         '@odata.id': '/redfish/v1/Systems',
-        'Members@odata.count': len(SYSTEMS),
-        'Members': [
-            {'@odata.id': '/redfish/v1/Systems/' + name} for name in SYSTEMS
-        ],
+        'Members@odata.count': len(members),
+        'Members': members,
     }
 
 @app.get('/redfish/v1/Systems/<name>')
 def get_Systems_name(name):
-    if name not in SYSTEMS:
-        bottle.abort(404)
-
-    system = SYSTEMS[name]
+    system = SYSTEMS_get(name)
     return {
         '@odata.id': '/redfish/v1/Systems/' + name,
         'Id': name,
-        'SerialNumber': name,
+        'SerialNumber': system['serialnumber'],
         'Model': system['model'],
         'HostName': system['hostname'],
         'PowerState': 'On',
@@ -173,8 +191,7 @@ def get_Systems_name(name):
 
 @app.post('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Reset')
 def post_ComputerSystem_Reset_name(name):
-    if name not in SYSTEMS:
-        bottle.abort(404)
+    system = SYSTEMS_get(name)
 
     try:
         data = json.load(bottle.request.body)
@@ -183,18 +200,17 @@ def post_ComputerSystem_Reset_name(name):
 
     reset_type = data.get('ResetType', '')
     if reset_type == 'GracefulShutdown':
-        shutdown(name, graceful=True)
+        shutdown(system, graceful=True)
     elif reset_type == 'GracefulRestart':
-        reset(name, graceful=True, update=False)
+        reset(system, graceful=True, update=False)
     elif reset_type == 'ForceRestart':
-        reset(name, graceful=False, update=False)
+        reset(system, graceful=False, update=False)
     else:
         bottle.abort(400)
 
 @app.post('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update')
 def post_ComputerSystem_Update_name(name):
-    if name not in SYSTEMS:
-        bottle.abort(404)
+    system = SYSTEMS_get(name)
 
     try:
         data = json.load(bottle.request.body)
@@ -206,17 +222,14 @@ def post_ComputerSystem_Update_name(name):
         if ((os.path.dirname(image) != '/redfish/v1/Images' or
              os.path.basename(image) not in IMAGES)):
             bottle.abort(400)
-        SYSTEMS[name]['update_image'] = image
-        SYSTEMS[name]['update_status'] = 'Pending'
+        system['update_image'] = image
+        system['update_status'] = 'Pending'
 
-    reset(name, graceful=False, update=True)
+    reset(system, graceful=False, update=True)
 
 @app.get('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update')
 def get_ComputerSystem_Update_name(name):
-    if name not in SYSTEMS:
-        bottle.abort(404)
-
-    system = SYSTEMS[name]
+    system = SYSTEMS_get(name)
     return {
         '@odata.id': '/redfish/v1/Systems/' + name +
                      '/Actions/ComputerSystem.Update',
@@ -226,10 +239,8 @@ def get_ComputerSystem_Update_name(name):
 
 @app.delete('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update')
 def delete_ComputerSystem_Update_name(name):
-    if name not in SYSTEMS:
-        bottle.abort(404)
-
-    SYSTEMS[name]['update_status'] = ''
+    system = SYSTEMS_get(name)
+    system['update_status'] = ''
 
 @app.get('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update.Delete')
 def get_ComputerSystem_Update_Delete_name(name):
