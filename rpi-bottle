@@ -78,6 +78,17 @@ def do_system_reset(args):
                       '/Actions/ComputerSystem.Reset', json=data)
     r.raise_for_status()
 
+@add_help('Shutdown system')
+@add_arg('system', help='System name')
+def do_system_shutdown(args):
+    # Shutdown the system
+    data = {
+        'ResetType': 'GracefulShutdown',
+    }
+    r = requests.post(args.host + '/Systems/' + args.system +
+                      '/Actions/ComputerSystem.Reset', json=data)
+    r.raise_for_status()
+
 @add_help('Update system')
 @add_arg('system', help='System name')
 @add_arg('image', help='Image name', nargs='?')
