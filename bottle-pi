@@ -68,18 +68,18 @@ def reset(system, graceful=False, update=False):
 
     if update:
         # Invoke the installer by driving the gpio4 pin
-        gpio.setup(gpio4, gpio.OUT, initial=0)
+        gpio.output(gpio4, gpio.LOW)
 
     # Reset the system
-    gpio.setup(runpin, gpio.OUT, initial=0)
+    gpio.output(runpin, gpio.LOW)
     time.sleep(1)
-    gpio.cleanup(runpin)
+    gpio.output(runpin, gpio.HIGH)
 
     if update:
         # Keep driving the gpio4 pin for a bit to give the Pi firmware enough
         # time to sample its state
         time.sleep(20)
-        gpio.cleanup(gpio4)
+        gpio.output(gpio4, gpio.HIGH)
 
 # -----------------------------------------------------------------------------
 # Redfish API routes
@@ -277,6 +277,13 @@ if __name__ == '__main__':
 
     # Use board pin numbers
     gpio.setmode(gpio.BOARD)
+
+    # Setup the GPIOs
+    channels = []
+    for _, system in SYSTEMS.items():
+        channels.append(system['gpio4'])
+        channels.append(system['runpin'])
+    gpio.setup(channels, gpio.OUT, initial=gpio.HIGH)
 
     # Run the bottle server
     bottle.run(app, host='0.0.0.0', port=config['port'], server='cherrypy',
