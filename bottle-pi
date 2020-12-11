@@ -17,14 +17,21 @@ try:
     import RPi.GPIO as gpio
 except ModuleNotFoundError:
     class gpio():
-        BOARD = None
-        OUT = None
-        def setmode(val):  # noqa: E301 / pylint: disable=E0213
+        BOARD = 0
+        OUT = 0
+        LOW = 0
+        HIGH = 1
+        val = {}
+        def setmode(_val):  # noqa: E301 / pylint: disable=E0213
             pass
-        def setup(pin, val, initial=None):  # noqa: E301 / pylint: disable=E0213
+        def setup(_pin, _val, _initial=None):  # noqa: E301 / pylint: disable=E0213
             pass
-        def cleanup(pin):  # noqa: E301 / pylint: disable=E0213
-            pass
+        def gpio_function(_pin):  # noqa: E301 / pylint: disable=E0213
+            return gpio.OUT
+        def output(pin, val):  # noqa: E301 / pylint: disable=E0213
+            gpio.val[pin] = val
+        def input(pin):  # noqa: E301 / pylint: disable=E0213
+            return gpio.val.get(pin, gpio.LOW)
 
 app = bottle.Bottle()
 
@@ -55,31 +62,43 @@ def ssh(system, cmd):
                system['hostname']] + cmd
     return subprocess.run(ssh_cmd, capture_output=True, check=False)
 
-def shutdown(system, graceful=False):
+def is_poweroff(system):
     """
-    Shut down a system
+    Is the system powered on?
     """
-    if not graceful:
-        # Not supported (yet)
+    return gpio.input(system['runpin']) == gpio.LOW
+
+def poweroff(system, graceful=False):
+    """
+    Power off a system
+    """
+    if is_poweroff(system):
         return
 
-    # Poweroff the system via SSH
-    resp = ssh(system, ['sudo', 'poweroff'])
-    if resp.returncode != 0:
-        bottle.abort(400)
+    if graceful:
+        # Try to shutdown the system via SSH
+        resp = ssh(system, ['sudo', 'poweroff'])
+        if resp.returncode == 0:
+            # Wait some time for the system to shutdown
+            time.sleep(10)
 
-    # Wait some time for the system to poweroff and assume success
-    time.sleep(10)
+    # Power off
+    set_gpio(system['runpin'], gpio.LOW)
 
-def reset(system, graceful=False, update=False):
+def is_poweron(system):
     """
-    Reset a system
+    Is the system powered off?
     """
-    shutdown(system, graceful=graceful)
+    return gpio.input(system['runpin']) == gpio.HIGH
 
-    runpin = system['runpin']
+def poweron(system, update=False):
+    """
+    Power on a system
+    """
+    if is_poweron(system):
+        return
+
     gpio4 = system['gpio4']
-
     if update:
         # Invoke the installer by driving the gpio4 pin low
         set_gpio(gpio4, gpio.LOW)
@@ -87,16 +106,23 @@ def reset(system, graceful=False, update=False):
         # Make sure the installer is not invoked
         set_gpio(gpio4, gpio.HIGH)
 
-    # Reset the system
-    set_gpio(runpin, gpio.LOW)
-    time.sleep(1)
-    set_gpio(runpin, gpio.HIGH)
+    # Power on
+    set_gpio(system['runpin'], gpio.HIGH)
 
     if update:
         # Keep driving the gpio4 pin low for a bit to give the Pi firmware
         # enough time to sample its state
         time.sleep(20)
         set_gpio(gpio4, gpio.HIGH)
+
+def reset(system, graceful=False, update=False):
+    """
+    Reset a system
+    """
+    if is_poweron(system):
+        poweroff(system, graceful=graceful)
+        time.sleep(1)
+    poweron(system, update=update)
 
 # -----------------------------------------------------------------------------
 # Redfish API routes
@@ -185,14 +211,16 @@ def get_Systems_name(name):
         'SerialNumber': system['serialnumber'],
         'Model': system['model'],
         'HostName': system['hostname'],
-        'PowerState': 'On',
+        'PowerState': 'On' if is_poweron(system) else 'Off',
         'Actions': {
             '#ComputerSystem.Reset': {
                 'target': '/redfish/v1/Systems/' + name +
                           '/Actions/ComputerSystem.Reset',
                 'ResetType@Redfish.AllowableValues': [
-                    'GracefulShutdown',
+                    'On',
+                    'GracefulOff',
                     'GracefulRestart',
+                    'ForceOff',
                     'ForceRestart',
                 ],
             },
@@ -216,12 +244,16 @@ def post_ComputerSystem_Reset_name(name):
         data = {}
 
     reset_type = data.get('ResetType', '')
-    if reset_type == 'GracefulShutdown':
-        shutdown(system, graceful=True)
+    if reset_type == 'On':
+        poweron(system)
+    elif reset_type == 'GracefulOff':
+        poweroff(system, graceful=True)
     elif reset_type == 'GracefulRestart':
-        reset(system, graceful=True, update=False)
+        reset(system, graceful=True)
+    elif reset_type == 'ForceOff':
+        poweroff(system, graceful=False)
     elif reset_type == 'ForceRestart':
-        reset(system, graceful=False, update=False)
+        reset(system, graceful=False)
     else:
         bottle.abort(400)
 

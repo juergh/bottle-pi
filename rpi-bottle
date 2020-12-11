@@ -62,28 +62,46 @@ def do_system_show(args):
 
 @add_help('Reset system')
 @add_arg('system', help='System name')
-@add_arg('-r', '--reset_type', choices=['hard', 'soft'],
+@add_arg('-t', '--type', choices=['hard', 'soft'],
          default='hard', help='Reset type (default: hard)')
 def do_system_reset(args):
-    reset_type_map = {
+    type_map = {
         'hard': 'ForceRestart',
         'soft': 'GracefulRestart',
     }
 
     # Reset the system
     data = {
-        'ResetType': reset_type_map[args.reset_type],
+        'ResetType': type_map[args.type],
     }
     r = requests.post(args.host + '/Systems/' + args.system +
                       '/Actions/ComputerSystem.Reset', json=data)
     r.raise_for_status()
 
-@add_help('Shutdown system')
+@add_help('Poweroff system')
 @add_arg('system', help='System name')
-def do_system_shutdown(args):
-    # Shutdown the system
+@add_arg('-t', '--type', choices=['hard', 'soft'],
+         default='hard', help='Poweroff type (default: hard)')
+def do_system_poweroff(args):
+    type_map = {
+        'hard': 'ForceOff',
+        'soft': 'GracefulOff',
+    }
+
+    # Poweroff the system
     data = {
-        'ResetType': 'GracefulShutdown',
+        'ResetType': type_map[args.type],
+    }
+    r = requests.post(args.host + '/Systems/' + args.system +
+                      '/Actions/ComputerSystem.Reset', json=data)
+    r.raise_for_status()
+
+@add_help('Poweron system')
+@add_arg('system', help='System name')
+def do_system_poweron(args):
+    # Poweron the system
+    data = {
+        'ResetType': 'On',
     }
     r = requests.post(args.host + '/Systems/' + args.system +
                       '/Actions/ComputerSystem.Reset', json=data)
