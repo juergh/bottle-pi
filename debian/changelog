@@ -1,3 +1,15 @@
+bottle-pi (0.0.8) unstable; urgency=medium
+
+  * Always set the GPIOs as outputs when starting the API server
+  * Rename 'runpin' to 'power'
+  * Update bottle-pi.config
+  * Introduce the concept of system power on and off
+  * Only configure the GPIOs as output when necessary
+  * Update bottle-pi.config
+  * Explicitly set the runpins and gpio4s as outputs and drive them
+
+ -- Juerg Haefliger <juergh@canonical.com>  Fri, 11 Dec 2020 14:17:36 +0100
+
 bottle-pi (0.0.7) unstable; urgency=medium
 
   * Add system-shutdown CLI command
