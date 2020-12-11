@@ -66,7 +66,7 @@ def is_poweroff(system):
     """
     Is the system powered on?
     """
-    return gpio.input(system['runpin']) == gpio.LOW
+    return gpio.input(system['power']) == gpio.LOW
 
 def poweroff(system, graceful=False):
     """
@@ -83,13 +83,13 @@ def poweroff(system, graceful=False):
             time.sleep(10)
 
     # Power off
-    set_gpio(system['runpin'], gpio.LOW)
+    set_gpio(system['power'], gpio.LOW)
 
 def is_poweron(system):
     """
     Is the system powered off?
     """
-    return gpio.input(system['runpin']) == gpio.HIGH
+    return gpio.input(system['power']) == gpio.HIGH
 
 def poweron(system, update=False):
     """
@@ -107,7 +107,7 @@ def poweron(system, update=False):
         set_gpio(gpio4, gpio.HIGH)
 
     # Power on
-    set_gpio(system['runpin'], gpio.HIGH)
+    set_gpio(system['power'], gpio.HIGH)
 
     if update:
         # Keep driving the gpio4 pin low for a bit to give the Pi firmware
@@ -121,7 +121,7 @@ def reset(system, graceful=False, update=False):
     """
     if is_poweron(system):
         poweroff(system, graceful=graceful)
-        time.sleep(1)
+        time.sleep(10)
     poweron(system, update=update)
 
 # -----------------------------------------------------------------------------
@@ -329,7 +329,7 @@ if __name__ == '__main__':
 
     # Setup the GPIOs
     for _, system in SYSTEMS.items():
-        set_gpio(system['runpin'], gpio.HIGH, set_level=False)
+        set_gpio(system['power'], gpio.HIGH, set_level=False)
         set_gpio(system['gpio4'], gpio.HIGH, set_level=False)
 
     # Run the bottle server
