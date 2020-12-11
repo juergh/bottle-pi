@@ -28,6 +28,20 @@ except ModuleNotFoundError:
 
 app = bottle.Bottle()
 
+def set_gpio(name, level, set_level=True):
+    """
+    Set a GPIO
+    """
+    func = gpio.gpio_function(name)
+
+    if func != gpio.OUT:
+        # Configure the gpio as an output
+        gpio.setup(name, gpio.OUT)
+
+    if set_level:
+        # Set the gpio
+        gpio.output(name, level)
+
 def ssh(system, cmd):
     """
     Run the given command on the provided system
@@ -67,19 +81,22 @@ def reset(system, graceful=False, update=False):
     gpio4 = system['gpio4']
 
     if update:
-        # Invoke the installer by driving the gpio4 pin
-        gpio.output(gpio4, gpio.LOW)
+        # Invoke the installer by driving the gpio4 pin low
+        set_gpio(gpio4, gpio.LOW)
+    else:
+        # Make sure the installer is not invoked
+        set_gpio(gpio4, gpio.HIGH)
 
     # Reset the system
-    gpio.output(runpin, gpio.LOW)
+    set_gpio(runpin, gpio.LOW)
     time.sleep(1)
-    gpio.output(runpin, gpio.HIGH)
+    set_gpio(runpin, gpio.HIGH)
 
     if update:
-        # Keep driving the gpio4 pin for a bit to give the Pi firmware enough
-        # time to sample its state
+        # Keep driving the gpio4 pin low for a bit to give the Pi firmware
+        # enough time to sample its state
         time.sleep(20)
-        gpio.output(gpio4, gpio.HIGH)
+        set_gpio(gpio4, gpio.HIGH)
 
 # -----------------------------------------------------------------------------
 # Redfish API routes
@@ -279,11 +296,9 @@ if __name__ == '__main__':
     gpio.setmode(gpio.BOARD)
 
     # Setup the GPIOs
-    channels = []
     for _, system in SYSTEMS.items():
-        channels.append(system['gpio4'])
-        channels.append(system['runpin'])
-    gpio.setup(channels, gpio.OUT, initial=gpio.HIGH)
+        set_gpio(system['runpin'], gpio.HIGH, set_level=False)
+        set_gpio(system['gpio4'], gpio.HIGH, set_level=False)
 
     # Run the bottle server
     bottle.run(app, host='0.0.0.0', port=config['port'], server='cherrypy',
