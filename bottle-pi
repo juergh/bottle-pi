@@ -26,28 +26,12 @@ except ModuleNotFoundError:
             pass
         def setup(_pin, _val, _initial=None):  # noqa: E301 / pylint: disable=E0213
             pass
-        def gpio_function(_pin):  # noqa: E301 / pylint: disable=E0213
-            return gpio.OUT
         def output(pin, val):  # noqa: E301 / pylint: disable=E0213
             gpio.val[pin] = val
         def input(pin):  # noqa: E301 / pylint: disable=E0213
             return gpio.val.get(pin, gpio.LOW)
 
 app = bottle.Bottle()
-
-def set_gpio(name, level, set_level=True):
-    """
-    Set a GPIO
-    """
-    func = gpio.gpio_function(name)
-
-    if func != gpio.OUT:
-        # Configure the gpio as an output
-        gpio.setup(name, gpio.OUT)
-
-    if set_level:
-        # Set the gpio
-        gpio.output(name, level)
 
 def ssh(system, cmd):
     """
@@ -83,7 +67,7 @@ def poweroff(system, graceful=False):
             time.sleep(10)
 
     # Power off
-    set_gpio(system['power'], gpio.LOW)
+    gpio.output(system['power'], gpio.LOW)
 
 def is_poweron(system):
     """
@@ -98,22 +82,21 @@ def poweron(system, update=False):
     if is_poweron(system):
         return
 
-    gpio4 = system['gpio4']
     if update:
         # Invoke the installer by driving the gpio4 pin low
-        set_gpio(gpio4, gpio.LOW)
+        gpio.output(system['gpio4'], gpio.LOW)
     else:
         # Make sure the installer is not invoked
-        set_gpio(gpio4, gpio.HIGH)
+        gpio.output(system['gpio4'], gpio.HIGH)
 
     # Power on
-    set_gpio(system['power'], gpio.HIGH)
+    gpio.output(system['power'], gpio.HIGH)
 
     if update:
         # Keep driving the gpio4 pin low for a bit to give the Pi firmware
         # enough time to sample its state
         time.sleep(20)
-        set_gpio(gpio4, gpio.HIGH)
+        gpio.output(system['gpio4'], gpio.HIGH)
 
 def reset(system, graceful=False, update=False):
     """
@@ -329,8 +312,8 @@ if __name__ == '__main__':
 
     # Setup the GPIOs
     for _, system in SYSTEMS.items():
-        set_gpio(system['power'], gpio.HIGH, set_level=False)
-        set_gpio(system['gpio4'], gpio.HIGH, set_level=False)
+        gpio.setup(system['power'], gpio.OUT)
+        gpio.setup(system['gpio4'], gpio.OUT)
 
     # Run the bottle server
     bottle.run(app, host='0.0.0.0', port=config['port'], server='cherrypy',
