@@ -195,6 +195,13 @@ def get_Systems_name(name):
         'Model': system['model'],
         'HostName': system['hostname'],
         'PowerState': 'On' if is_poweron(system) else 'Off',
+        'Gpios': [
+            {
+                'Name': name,
+                'Pin': system[name],
+                'Value': gpio.input(system[name])
+            } for name in ('gpio4', 'power')
+        ],
         'Actions': {
             '#ComputerSystem.Reset': {
                 'target': '/redfish/v1/Systems/' + name +
