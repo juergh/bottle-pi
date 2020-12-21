@@ -48,10 +48,16 @@ def do_image_get(args):
             sys.stdout.buffer.write(chunk)
 
 @add_help('List systems')
+@add_arg('-d', '--details', action='store_true', help='Show system details')
 def do_system_list(args):
     r = requests.get(args.host + '/Systems')
     r.raise_for_status()
-    print_json(r.json())
+    if args.details:
+        for member in r.json()['Members']:
+            args.system = member['@odata.id'].split('/')[-1]
+            do_system_show(args)
+    else:
+        print_json(r.json())
 
 @add_help('Show system details')
 @add_arg('system', help='System name')
