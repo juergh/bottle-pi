@@ -68,11 +68,10 @@ def do_system_show(args):
 
 @add_help('Reset system')
 @add_arg('system', help='System name')
-@add_arg('-s', '--soft', action='store_true', help='Perform a soft reset')
 def do_system_reset(args):
     # Reset the system
     data = {
-        'ResetType': 'GracefulRestart' if args.soft else 'ForceRestart',
+        'ResetType': 'ForceRestart',
     }
     r = requests.post(args.host + '/Systems/' + args.system +
                       '/Actions/ComputerSystem.Reset', json=data)
@@ -80,11 +79,10 @@ def do_system_reset(args):
 
 @add_help('Poweroff system')
 @add_arg('system', help='System name')
-@add_arg('-s', '--soft', action='store_true', help='Perform a soft poweroff')
 def do_system_poweroff(args):
     # Poweroff the system
     data = {
-        'ResetType': 'GracefulOff' if args.soft else 'ForceOff',
+        'ResetType': 'ForceOff',
     }
     r = requests.post(args.host + '/Systems/' + args.system +
                       '/Actions/ComputerSystem.Reset', json=data)
