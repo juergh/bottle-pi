@@ -1,0 +1,485 @@
+#!/usr/bin/env python3
+#
+# A simple CLI to control a target Raspberry Pi that is managed by a bottle-pi
+# REST API server
+#
+
+import argparse
+import json
+import logging as log
+import socket
+import sys
+import time
+
+import paramiko
+import requests
+
+SSH_PORT = 22
+SSH_USER = 'ubuntu'
+SSH_PASS = 'ubuntu'
+
+E_OK = ''
+E_UNKNOWN = 'Unknown.Failure'
+E_SSH_EXEC = 'Ssh.Command.Execution.Failure'
+E_NO_ROOT_ACCESS = 'No.Root.Access'
+E_NO_ACCESS = 'No.Access'
+E_TIME_OUT = 'Operation.Timed.Out'
+
+def response(error, message=None, stdout=None, stderr=None, data=None):
+    """
+    Construct a response
+    """
+    if error == E_OK:
+        resp = {
+            'returncode': 0,
+            'data': data,
+        }
+    else:
+        resp = {
+            'returncode': 1,
+            'error': {
+                'code': error,
+                'message': message if message else '',
+                'stdout': stdout if stdout else [],
+                'stderr': stderr if stderr else [],
+            },
+        }
+        log.warning(resp)
+    log.debug(resp)
+    return resp
+
+def is_port_open(addr, port):
+    """
+    Check if the given addr:port is open
+    """
+    addr = (addr, port)
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.settimeout(0.5)
+        s.connect(addr)
+        s.close()
+        log.debug('%s is open', addr)
+        return True
+    except (ConnectionRefusedError, socket.timeout, OSError):
+        log.debug('%s is NOT open', addr)
+        return False
+
+class SSHClient():
+    """
+    A wrapper around paramiko's SSHClient class
+    """
+    def __init__(self, addr, port=22, username=None, password=None, timeout=2):
+        self.client = paramiko.SSHClient()
+        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.client.connect(addr, port=port, username=username,
+                            password=password, timeout=timeout,
+                            allow_agent=False, look_for_keys=False)
+
+    def close(self):
+        if self.client:
+            self.client.close()
+
+    def run(self, cmd):
+        stdin, stdout, stderr = self.client.exec_command(cmd)
+        so = [line.strip('\n') for line in stdout]
+        se = [line.strip('\n') for line in stderr]
+        rc = stdout.channel.recv_exit_status()
+        stdin.close()
+        stdout.close()
+        stderr.close()
+        return rc, so, se
+
+class System():
+    """
+    Raspberry Pi system class
+    """
+    def __init__(self, args):
+        self._host = args.host
+        self._system = args.system
+
+        self.ssh_client = None
+        self.system = {}
+        self.refresh_system()
+
+    def refresh_system(self):
+        """
+        Refresh all system information
+        """
+        log.info('Refresh all system information ')
+        self.system = {}
+        self.refresh_bottle_info()
+        self.refresh_ip_addrs()
+        self.refresh_system_state()
+        self.refresh_os_info()
+
+    def refresh_bottle_info(self):
+        """
+        Get system information from bottle-pi server
+        """
+        log.info('Refresh information from bottle-pi server')
+
+        r = requests.get(self._host + '/Systems/' + self._system)
+        r.raise_for_status()
+        self.system.update(r.json())
+
+    def refresh_ip_addrs(self):
+        """
+        Get IP addresses
+        """
+        log.info('Refresh IP addresses')
+
+        self.system['Addresses'] = []
+        r = socket.gethostbyname_ex(self.system['HostName'])
+        # To speed things up, go through the list in reverse order and stop at
+        # the first valid address
+        r[2].reverse()
+        for addr in r[2]:
+            if is_port_open(addr, SSH_PORT):
+                self.system['Addresses'].append(addr)
+                return True
+        log.warning('No valid IP address found')
+        return False
+
+    def refresh_system_state(self):
+        """
+        Get system state
+        """
+        log.info('Refresh system state')
+
+        if self.system['PowerState'] == 'Off':
+            state = 'Down'
+        elif not self.system['Addresses']:
+            state = 'NoAddress'
+        else:
+            try:
+                # Establish an SSH connection to the system
+                self.ssh_client = SSHClient(self.system['Addresses'][0],
+                                            port=SSH_PORT, username=SSH_USER,
+                                            password=SSH_PASS)
+                # Check if we have sudo permissions
+                rc, _stdout, _stderr = self.ssh_client.run('sudo whoami')
+                if rc:
+                    state = 'UserAccess'
+                else:
+                    state = 'RootAccess'
+            except (paramiko.ssh_exception.NoValidConnectionsError,
+                    socket.timeout):
+                state = 'NoConnection'
+            except paramiko.ssh_exception.AuthenticationException:
+                state = 'NoAuthentication'
+        self.system['SystemState'] = state
+
+    def refresh_os_info(self):
+        """
+        Get OS information
+        """
+        log.info('Refresh OS information')
+        if self.system['SystemState'] not in ('RootAccess', 'UserAccess'):
+            info = 'Unavailable'
+        else:
+            info = {}
+            r = self.run('uname -a')
+            info['Kernel'] = r.get('data', [''])[0]
+            r = self.run('lsb_release -a')
+            info['LsbRelease'] = r.get('data', [])
+        self.system['OsInformation'] = info
+
+    def is_alive(self):
+        """
+        Check if the system is alive
+        """
+        if self.system['Addresses']:
+            return is_port_open(self.system['Addresses'][0], SSH_PORT)
+
+        # We don't have an address cached, so refresh the system info
+        self.refresh_system()
+        if self.system['Addresses']:
+            return True
+        return False
+
+    def run(self, cmd):
+        """
+        Run a command on the system
+        """
+        log.debug('Run command: %s', cmd)
+
+        rc, stdout, stderr = self.ssh_client.run(cmd)
+        if rc:
+            return response(E_SSH_EXEC,
+                            message='Failed to run command: {}'.format(cmd),
+                            stdout=stdout, stderr=stderr)
+        return response(E_OK, data=stdout)
+
+    def wait_down(self, timeout, interval=5):
+        """
+        Wait for the system to go down
+        """
+        log.info('Wait for system to go down (timeout=%d)', timeout)
+
+        timeout = int(time.time() + timeout)
+        while int(time.time()) < timeout:
+            time.sleep(interval)
+            if not self.is_alive():
+                log.info('System is down')
+                return response(E_OK)
+        log.info('Timed out waiting for system to go down')
+        return response(E_TIME_OUT,
+                        message='Timed out waiting for system to go down')
+
+    def wait_up(self, timeout, interval=5):
+        """
+        Wait for the system to come up
+        """
+        log.info('Wait for system to come up (timeout=%d)', timeout)
+
+        timeout = int(time.time() + timeout)
+        while int(time.time()) < timeout:
+            time.sleep(interval)
+            if self.is_alive():
+                log.info('System is up')
+                return response(E_OK)
+        log.info('Timed out waiting for system to come up')
+        return response(E_TIME_OUT,
+                        message='Timed out waiting for system to come up')
+
+    def info(self):
+        """
+        Return system information
+        """
+        return response(E_OK, data=self.system)
+
+    def poweron(self, timeout=0):
+        """
+        Power the system on
+        """
+        log.info('Power on system')
+        data = {'ResetType': 'On'}
+        r = requests.post(self._host + '/Systems/' + self._system +
+                          '/Actions/ComputerSystem.Reset', json=data)
+        r.raise_for_status()
+
+        r = response(E_OK)
+        if timeout > 0:
+            # Wait for the system to come up
+            return self.wait_up(timeout)
+        return r
+
+    def poweroff(self):
+        """
+        Power the system off
+        """
+        log.info('Power off system')
+        data = {'ResetType': 'ForceOff'}
+        r = requests.post(self._host + '/Systems/' + self._system +
+                          '/Actions/ComputerSystem.Reset', json=data)
+        r.raise_for_status()
+
+        r = response(E_OK)
+        return r
+
+    def reboot(self, timeout=0):
+        """
+        Reboot the system
+        """
+        state = self.system['SystemState']
+        if state != 'RootAccess':
+            return response(E_NO_ROOT_ACCESS,
+                            message='Invalid system state: {}'.format(state))
+
+        log.info('Reboot system (timeout=%d)', timeout)
+
+        # Reboot the system
+        r = self.run('( sudo reboot >/dev/null 2>&1 & ) &')
+        if r['returncode']:
+            return r
+
+        if timeout > 0:
+            now = time.time()
+            # Wait for the system to go down
+            r = self.wait_down(timeout)
+            if r['returncode']:
+                return r
+            timeout = timeout + now - time.time()
+            # Wait for the system to come up
+            r = self.wait_up(timeout)
+            if r['returncode']:
+                return r
+        return r
+
+    def shutdown(self, timeout=0):
+        """
+        Shutdown the system
+        """
+        state = self.system['SystemState']
+        if state != 'RootAccess':
+            return response(E_NO_ROOT_ACCESS,
+                            message='Invalid system state: {}'.format(state))
+
+        log.info('Shut down system (timeout=%d)', timeout)
+
+        # Poweroff the system
+        r = self.run('( sudo poweroff >/dev/null 2>&1 & ) &')
+        if r['returncode']:
+            return r
+
+        if timeout > 0:
+            # Wait for the system to go down
+            r = self.wait_down(timeout)
+            if r['returncode']:
+                return r
+        return r
+
+    def update(self, image, timeout=0):
+        """
+        Update the system image
+        """
+        if not image.startswith('/redfish/v1/Images/'):
+            image = '/redfish/v1/Images/' + image
+
+        log.info('Update system image: %s (timeout=%d)', image, timeout)
+
+        # Update the image
+        data = {'Image': image}
+        r = requests.post(self._host + '/Systems/' + self._system +
+                          '/Actions/ComputerSystem.Update', json=data)
+        r.raise_for_status()
+
+        r = response(E_OK)
+        if timeout > 0:
+            # Wait for the system to come up
+            return self.wait_up(timeout)
+        return r
+
+# -----------------------------------------------------------------------------
+# Helper functions
+
+def _dec(name, *args, **kwargs):
+    def _decorator(func):
+        # Because of the sematics of decorator composition if we just append
+        # to the options list positional options will appear to be backwards.
+        func.__dict__.setdefault(name, []).insert(0, (args, kwargs))
+        return func
+    return _decorator
+
+def add_help(*args, **kwargs):
+    return _dec('help', *args, **kwargs)
+
+def add_arg(*args, **kwargs):
+    return _dec('arg', *args, **kwargs)
+
+def print_json(data):
+    print(json.dumps(data, indent=4, sort_keys=True))
+
+# -----------------------------------------------------------------------------
+# Subcommands
+
+@add_help('Show system information')
+def do_info(args):
+    system = System(args)
+    r = system.info()
+    print_json(r)
+    return r['returncode']
+
+@add_help('Reboot system')
+@add_arg('-t', '--timeoutt', metavar='SECS', default=0, type=int,
+         help='Give up waiting for the system to come back up after <SECS> seconds')
+def do_reboot(args):
+    system = System(args)
+    r = system.reboot(timeout=args.timeout)
+    print_json(r)
+    return r['returncode']
+
+@add_help('Shut down system')
+@add_arg('-t', '--timeout', metavar='SECS', default=0, type=int,
+         help='Give up waiting for the system to shut down after <SECS> seconds')
+def do_shutdown(args):
+    system = System(args)
+    r = system.shutdown(timeout=args.timeout)
+    print_json(r)
+    return r['returncode']
+
+@add_help('Power on system')
+@add_arg('-t', '--timeout', metavar='SECS', default=0, type=int,
+         help='Give up waiting for the system to come up after <SECS> seconds')
+def do_poweron(args):
+    system = System(args)
+    r = system.poweron(timeout=args.timeout)
+    print_json(r)
+    return r['returncode']
+
+@add_help('Power off system')
+def do_poweroff(args):
+    system = System(args)
+    r = system.poweroff()
+    print_json(r)
+    return r['returncode']
+
+@add_help('Update system image')
+@add_arg('image', metavar='IMAGE',
+         help='Name of the image')
+@add_arg('-t', '--timeout', metavar='SECS', default=0, type=int,
+         help='Give up waiting for the system to come up after <SECS> seconds')
+def do_update(args):
+    system = System(args)
+    now = time.time()
+    r = system.shutdown(timeout=10)
+    if r['returncode'] == 0:
+        # Give it some more time to fully shut down
+        time.sleep(10)
+    system.poweroff()
+    timeout = args.timeout + now - time.time()
+    r = system.update(args.image, timeout=timeout)
+    return r['returncode']
+
+# -----------------------------------------------------------------------------
+# Main entry point
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('host', metavar='host[:port]',
+                        help='Remote bottle-pi host (and port)')
+    parser.add_argument('system',
+                        help='Target Raspberry Pi name or serial number')
+    parser.add_argument('-l', '--log-level', choices=('0', '1', '2', '3', '4'),
+                        default='3',
+                        help='Set the logging level (0: critical, 1: error, ' +
+                        '2: warning, 3:info, 4:debug), default: 3')
+
+    # Add subparsers for the subcommands and walk through the 'do_' functions
+    subparsers = parser.add_subparsers(dest='subcommand', title='subcommands',
+                                       required=True)
+    module = sys.modules[__name__]
+    for attr in (a for a in dir(module) if a.startswith('do_')):
+        cmd_name = attr[3:].replace('_', '-')
+        cmd_cb = getattr(module, attr)
+        cmd_desc = cmd_cb.__doc__ or ''
+        cmd_help = getattr(cmd_cb, 'help', [])
+        cmd_args = getattr(cmd_cb, 'arg', [])
+
+        sparser = subparsers.add_parser(cmd_name, help=cmd_help[0][0][0],
+                                        description=cmd_desc, add_help=False)
+        sparser.add_argument('-h', '--help', action='help')
+        for (args, kwargs) in cmd_args:
+            sparser.add_argument(*args, **kwargs)
+        sparser.set_defaults(func=cmd_cb)
+
+    # Parse the arguments
+    args = parser.parse_args()
+    if not args.host.startswith('http://'):
+        args.host = 'http://' + args.host
+    args.host = args.host.rstrip('/') + '/redfish/v1'
+
+    # Setup the logger
+    levels = {
+        '0': log.CRITICAL,
+        '1': log.ERROR,
+        '2': log.WARNING,
+        '3': log.INFO,
+        '4': log.DEBUG,
+    }
+    log.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S',
+                    level=levels[args.log_level])
+
+    # Call the subcommand
+    sys.exit(args.func(args))
