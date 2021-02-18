@@ -209,7 +209,7 @@ class System():
                             stdout=stdout, stderr=stderr)
         return response(E_OK, stdout=stdout, stderr=stderr)
 
-    def wait_down(self, timeout, interval=5):
+    def wait_down(self, timeout, interval=1):
         """
         Wait for the system to go down
         """
