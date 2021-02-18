@@ -200,7 +200,7 @@ class System():
         """
         Run a command on the system
         """
-        log.debug('Run command: %s', cmd)
+        log.info('Run command: %s', cmd)
 
         rc, stdout, stderr = self.ssh_client.run(cmd)
         if rc:
@@ -430,6 +430,14 @@ def do_update(args):
     system.poweroff()
     timeout = args.timeout + now - time.time()
     r = system.update(args.image, timeout=timeout)
+    return r['returncode']
+
+@add_help('Run a remote command')
+@add_arg('command', help='Command to execute')
+def do_run(args):
+    system = System(args)
+    r = system.run(args.command)
+    print_json(r)
     return r['returncode']
 
 # -----------------------------------------------------------------------------
