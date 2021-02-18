@@ -381,8 +381,9 @@ def do_info(args):
     return r['returncode']
 
 @add_help('Reboot system')
-@add_arg('-t', '--timeoutt', metavar='SECS', default=0, type=int,
-         help='Give up waiting for the system to come back up after <SECS> seconds')
+@add_arg('-t', '--timeout', metavar='secs', default=0, type=int,
+         help='Give up waiting for the system to come back up after <secs> ' +
+         'seconds')
 def do_reboot(args):
     system = System(args)
     r = system.reboot(timeout=args.timeout)
@@ -390,8 +391,9 @@ def do_reboot(args):
     return r['returncode']
 
 @add_help('Shut down system')
-@add_arg('-t', '--timeout', metavar='SECS', default=0, type=int,
-         help='Give up waiting for the system to shut down after <SECS> seconds')
+@add_arg('-t', '--timeout', metavar='secs', default=0, type=int,
+         help='Give up waiting for the system to shut down after <secs> ' +
+         'seconds')
 def do_shutdown(args):
     system = System(args)
     r = system.shutdown(timeout=args.timeout)
@@ -399,8 +401,8 @@ def do_shutdown(args):
     return r['returncode']
 
 @add_help('Power on system')
-@add_arg('-t', '--timeout', metavar='SECS', default=0, type=int,
-         help='Give up waiting for the system to come up after <SECS> seconds')
+@add_arg('-t', '--timeout', metavar='secs', default=0, type=int,
+         help='Give up waiting for the system to come up after <secs> seconds')
 def do_poweron(args):
     system = System(args)
     r = system.poweron(timeout=args.timeout)
@@ -417,8 +419,8 @@ def do_poweroff(args):
 @add_help('Update system image')
 @add_arg('image', metavar='IMAGE',
          help='Name of the image')
-@add_arg('-t', '--timeout', metavar='SECS', default=0, type=int,
-         help='Give up waiting for the system to come up after <SECS> seconds')
+@add_arg('-t', '--timeout', metavar='secs', default=0, type=int,
+         help='Give up waiting for the system to come up after <secs> seconds')
 def do_update(args):
     system = System(args)
     now = time.time()
