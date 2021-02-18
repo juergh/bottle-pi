@@ -25,23 +25,22 @@ E_NO_ROOT_ACCESS = 'No.Root.Access'
 E_NO_ACCESS = 'No.Access'
 E_TIME_OUT = 'Operation.Timed.Out'
 
-def response(error, message=None, stdout=None, stderr=None, data=None):
+def response(error, message='', **kwargs):
     """
     Construct a response
     """
     if error == E_OK:
         resp = {
             'returncode': 0,
-            'data': data,
+            **kwargs,
         }
     else:
         resp = {
             'returncode': 1,
+            **kwargs,
             'error': {
                 'code': error,
-                'message': message if message else '',
-                'stdout': stdout if stdout else [],
-                'stderr': stderr if stderr else [],
+                'message': message,
             },
         }
         log.warning(resp)
@@ -179,9 +178,9 @@ class System():
         else:
             info = {}
             r = self.run('uname -a')
-            info['Kernel'] = r.get('data', [''])[0]
+            info['Kernel'] = r['stdout'][0]
             r = self.run('lsb_release -a')
-            info['LsbRelease'] = r.get('data', [])
+            info['LsbRelease'] = r['stdout']
         self.system['OsInformation'] = info
 
     def is_alive(self):
@@ -208,7 +207,7 @@ class System():
             return response(E_SSH_EXEC,
                             message='Failed to run command: {}'.format(cmd),
                             stdout=stdout, stderr=stderr)
-        return response(E_OK, data=stdout)
+        return response(E_OK, stdout=stdout, stderr=stderr)
 
     def wait_down(self, timeout, interval=5):
         """
@@ -246,7 +245,7 @@ class System():
         """
         Return system information
         """
-        return response(E_OK, data=self.system)
+        return response(E_OK, info=self.system)
 
     def poweron(self, timeout=0):
         """
