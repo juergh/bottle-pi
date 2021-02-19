@@ -25,19 +25,19 @@ E_NO_ROOT_ACCESS = 'No.Root.Access'
 E_NO_ACCESS = 'No.Access'
 E_TIME_OUT = 'Operation.Timed.Out'
 
-def response(error, message='', **kwargs):
+def response(error, message='', response=''):
     """
     Construct a response
     """
     if error == E_OK:
         resp = {
             'returncode': 0,
-            **kwargs,
+            'response': response,
         }
     else:
         resp = {
             'returncode': 1,
-            **kwargs,
+            'response': response,
             'error': {
                 'code': error,
                 'message': message,
@@ -80,13 +80,14 @@ class SSHClient():
 
     def run(self, cmd):
         stdin, stdout, stderr = self.client.exec_command(cmd)
-        so = [line.strip('\n') for line in stdout]
-        se = [line.strip('\n') for line in stderr]
-        rc = stdout.channel.recv_exit_status()
+        resp = {}
+        resp['stdout'] = [line.strip('\n') for line in stdout]
+        resp['stderr'] = [line.strip('\n') for line in stderr]
+        resp['returncode'] = stdout.channel.recv_exit_status()
         stdin.close()
         stdout.close()
         stderr.close()
-        return rc, so, se
+        return resp
 
 class System():
     """
@@ -156,8 +157,8 @@ class System():
                                             port=SSH_PORT, username=SSH_USER,
                                             password=SSH_PASS)
                 # Check if we have sudo permissions
-                rc, _stdout, _stderr = self.ssh_client.run('sudo whoami')
-                if rc:
+                r = self.ssh_client.run('sudo whoami')
+                if r['returncode']:
                     state = 'UserAccess'
                 else:
                     state = 'RootAccess'
@@ -178,9 +179,9 @@ class System():
         else:
             info = {}
             r = self.run('uname -a')
-            info['Kernel'] = r['stdout'][0]
+            info['Kernel'] = r['response']['stdout'][0]
             r = self.run('lsb_release -a')
-            info['LsbRelease'] = r['stdout']
+            info['LsbRelease'] = r['response']['stdout']
         self.system['OsInformation'] = info
 
     def is_alive(self):
@@ -202,12 +203,12 @@ class System():
         """
         log.info('Run command: %s', cmd)
 
-        rc, stdout, stderr = self.ssh_client.run(cmd)
-        if rc:
+        r = self.ssh_client.run(cmd)
+        if r['returncode']:
             return response(E_SSH_EXEC,
                             message='Failed to run command: {}'.format(cmd),
-                            stdout=stdout, stderr=stderr)
-        return response(E_OK, stdout=stdout, stderr=stderr)
+                            response=r)
+        return response(E_OK, response=r)
 
     def wait_down(self, timeout, interval=1):
         """
@@ -245,7 +246,7 @@ class System():
         """
         Return system information
         """
-        return response(E_OK, info=self.system)
+        return response(E_OK, response=self.system)
 
     def poweron(self, timeout=0):
         """
