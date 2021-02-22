@@ -30,6 +30,10 @@ except ModuleNotFoundError:
         def input(pin):  # noqa: E301 / pylint: disable=E0213
             return gpio.val.get(pin, gpio.LOW)
 
+CONFIGS = None
+SYSTEMS = None
+IMAGES = None
+
 app = bottle.Bottle()
 
 def is_poweroff(system):
@@ -111,6 +115,20 @@ def get_redfish_v1():
 # ----------------------------------------
 # Images
 
+def IMAGES_discover():
+    """
+    Discover the available images
+    """
+    # pylint: disable=W0603
+    global IMAGES
+
+    IMAGES = {}
+    images_pathname = CONFIGS['images']['pathname']
+    for name in os.listdir(images_pathname):
+        image_filename = os.path.join(images_pathname, name)
+        if os.path.isfile(image_filename):
+            IMAGES[name] = {'filename': image_filename}
+
 def IMAGES_get(name):
     """
     Return an image dict
@@ -137,6 +155,15 @@ def get_Images_name(name):
 
 # ----------------------------------------
 # Systems
+
+def SYSTEMS_discover():
+    """
+    Discover the available systems
+    """
+    # pylint: disable=W0603
+    global SYSTEMS
+
+    SYSTEMS = CONFIGS['systems']
 
 def SYSTEMS_get(name):
     """
@@ -272,25 +299,18 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Load the config file
-    config = None
+    CONFIGS = None
     for f in ['./bottle-pi.config', '/etc/bottle-pi.config']:
         if os.path.exists(f):
             with open(f) as fh:
-                config = yaml.load(fh, Loader=yaml.SafeLoader)
+                CONFIGS = yaml.load(fh, Loader=yaml.SafeLoader)
             break
-    if config is None:
+    if CONFIGS is None:
         raise Exception('Unable to load bottle-pi.config')
 
-    # The list of available systems
-    SYSTEMS = config['systems']
-
-    # The list of available images
-    IMAGES = {}
-    images_pathname = config['images']['pathname']
-    for name in os.listdir(images_pathname):
-        image_filename = os.path.join(images_pathname, name)
-        if os.path.isfile(image_filename):
-            IMAGES[name] = {'filename': image_filename}
+    # Discover the availalbe systems and images
+    SYSTEMS_discover()
+    IMAGES_discover()
 
     # Use board pin numbers
     gpio.setmode(gpio.BOARD)
@@ -301,5 +321,5 @@ if __name__ == '__main__':
         gpio.setup(system['gpio4'], gpio.OUT)
 
     # Run the bottle server
-    bottle.run(app, host='0.0.0.0', port=config['port'], server='cherrypy',
+    bottle.run(app, host='0.0.0.0', port=CONFIGS['port'], server='cherrypy',
                reloader=args.debug, debug=args.debug)
