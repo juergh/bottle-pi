@@ -444,6 +444,19 @@ def do_run(args):
     print_json(r)
     return r['returncode']
 
+@add_help('Show system state')
+def do_state(args):
+    system = System(args)
+    r = system.info()
+    if r['returncode']:
+        return r['returncode']
+    resp = r['response']
+    if resp['PowerState'] == 'Off':
+        print('Off')
+    else:
+        print(resp['SystemState'])
+    return r['returncode']
+
 # -----------------------------------------------------------------------------
 # Main entry point
 
