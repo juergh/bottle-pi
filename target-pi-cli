@@ -129,14 +129,17 @@ class System():
         log.info('Refresh IP addresses')
 
         self.system['Addresses'] = []
-        r = socket.gethostbyname_ex(self.system['HostName'])
-        # To speed things up, go through the list in reverse order and stop at
-        # the first valid address
-        r[2].reverse()
-        for addr in r[2]:
-            if is_port_open(addr, SSH_PORT):
-                self.system['Addresses'].append(addr)
-                return True
+        try:
+            r = socket.gethostbyname_ex(self.system['HostName'])
+            # To speed things up, go through the list in reverse order and stop
+            # at the first valid address
+            r[2].reverse()
+            for addr in r[2]:
+                if is_port_open(addr, SSH_PORT):
+                    self.system['Addresses'].append(addr)
+                    return True
+        except socket.gaierror:
+            pass
         log.warning('No valid IP address found')
         return False
 
