@@ -470,6 +470,9 @@ if __name__ == '__main__':
                         default='3',
                         help='Set the logging level (0: critical, 1: error, ' +
                         '2: warning, 3:info, 4:debug), default: 3')
+    parser.add_argument('-q', '--quiet', action='store_true',
+                        help='Only show criticals and errors (equivalent to ' +
+                        '--level=1)')
 
     # Add subparsers for the subcommands and walk through the 'do_' functions
     subparsers = parser.add_subparsers(dest='subcommand', title='subcommands',
@@ -504,7 +507,7 @@ if __name__ == '__main__':
     }
     log.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S',
-                    level=levels[args.log_level])
+                    level=log.ERROR if args.quiet else levels[args.log_level])
 
     # Call the subcommand
     sys.exit(args.func(args))
