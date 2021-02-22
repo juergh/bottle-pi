@@ -140,6 +140,8 @@ def IMAGES_get(name):
 
 @app.get('/redfish/v1/Images')
 def get_Images():
+    # Refresh the list of available images
+    IMAGES_Discover()
     return {
         '@odata.id': '/redfish/v1/Images',
         'Members@odata.count': len(IMAGES),
