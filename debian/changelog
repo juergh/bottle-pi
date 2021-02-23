@@ -1,3 +1,10 @@
+bottle-pi (0.0.10) unstable; urgency=medium
+
+  * target-pi-cli: Set an explicit SSH error state
+  * bottle-pi: Fix typo
+
+ -- Juerg Haefliger <juergh@canonical.com>  Tue, 23 Feb 2021 11:11:30 +0100
+
 bottle-pi (0.0.9) unstable; urgency=medium
 
   * target-pi-cli: Add '--quiet' commandline argument
