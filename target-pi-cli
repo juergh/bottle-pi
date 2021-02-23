@@ -165,11 +165,14 @@ class System():
                     state = 'UserAccess'
                 else:
                     state = 'RootAccess'
-            except (paramiko.ssh_exception.NoValidConnectionsError,
-                    socket.timeout):
-                state = 'NoConnection'
+            except paramiko.ssh_exception.NoValidConnectionsError:
+                state = 'NoValidConnectionError'
+            except socket.timeout:
+                state = 'TimeOutError'
+            except ConnectionResetError:
+                state = 'ConnectionResetError'
             except paramiko.ssh_exception.AuthenticationException:
-                state = 'NoAuthentication'
+                state = 'AuthenticationError'
         self.system['SystemState'] = state
 
     def refresh_os_info(self):
