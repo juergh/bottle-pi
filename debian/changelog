@@ -1,3 +1,29 @@
+bottle-pi (0.0.9) unstable; urgency=medium
+
+  * target-pi-cli: Add '--quiet' commandline argument
+  * target-pi-cli: Add 'state' subcommand
+  * target-pi-cli: Gracefully handle address lookup failures
+  * bottle-pi: Refresh the list of available images before returning it
+  * bottle-pi: Move the discovery of systems and images into individual
+    functions
+  * target-pi-cli: Add a dedicated 'response' key for response data
+  * target-pi-cli: Reduce the interval for wait_down
+  * target-pi-cli: Add 'run' subcommand
+  * target-pi-cli: Make the response dict generic
+  * target-pi-cli: Use the help text of a subcommand as its description
+    as well
+  * target-pi-cli: Cleanup the help text
+  * bottle-pi: Return system update details
+  * target-pi-cli: Initial commit
+  * Remove graceful restart and shutdown
+  * bottle-pi-cli: Add --details option for system-list
+  * Provide GPIO information
+  * rpi-bottle: Rename to bottle-pi-cli
+  * rpi-bottle: Replace --type hard|soft argument with --soft
+  * Fix bottle-pi.config
+
+ -- Juerg Haefliger <juergh@canonical.com>  Tue, 23 Feb 2021 11:04:52 +0100
+
 bottle-pi (0.0.8) unstable; urgency=medium
 
   * Always set the GPIOs as outputs when starting the API server
