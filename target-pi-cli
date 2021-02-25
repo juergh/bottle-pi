@@ -492,7 +492,7 @@ if __name__ == '__main__':
         sparser.add_argument('-h', '--help', action='help')
         for (args, kwargs) in cmd_args:
             sparser.add_argument(*args, **kwargs)
-        sparser.set_defaults(func=cmd_cb)
+        sparser.set_defaults(call_cmd=cmd_cb, print_help=sparser.print_help)
 
     # Parse the arguments
     args = parser.parse_args()
@@ -513,4 +513,7 @@ if __name__ == '__main__':
                     level=log.ERROR if args.quiet else levels[args.log_level])
 
     # Call the subcommand
-    sys.exit(args.func(args))
+    rc = args.call_cmd(args)
+    if rc == 2:
+        args.print_help()
+    sys.exit(rc)
