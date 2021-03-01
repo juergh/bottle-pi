@@ -13,6 +13,7 @@ import time
 
 import paramiko
 import requests
+import scp
 
 SSH_PORT = 22
 SSH_USER = 'ubuntu'
@@ -24,6 +25,7 @@ E_SSH_EXEC = 'Ssh.Command.Execution.Failure'
 E_NO_ROOT_ACCESS = 'No.Root.Access'
 E_NO_ACCESS = 'No.Access'
 E_TIME_OUT = 'Operation.Timed.Out'
+E_SCP_PUT = 'Scp.Put.Failure'
 
 def response(error, message='', response=''):
     """
@@ -73,10 +75,13 @@ class SSHClient():
         self.client.connect(addr, port=port, username=username,
                             password=password, timeout=timeout,
                             allow_agent=False, look_for_keys=False)
+        self.scp_client = scp.SCPClient(self.client.get_transport())
 
     def close(self):
         if self.client:
             self.client.close()
+        if self.scp_client:
+            self.scp_client.close()
 
     def run(self, cmd):
         stdin, stdout, stderr = self.client.exec_command(cmd)
@@ -87,6 +92,14 @@ class SSHClient():
         stdin.close()
         stdout.close()
         stderr.close()
+        return resp
+
+    def put(self, source, dest, recursive=False):
+        try:
+            self.scp_client.put(source, remote_path=dest, recursive=recursive)
+            resp = {'returncode': 0}
+        except scp.SCPException:
+            resp = {'returncode': 1}
         return resp
 
 class System():
@@ -213,6 +226,20 @@ class System():
         if r['returncode']:
             return response(E_SSH_EXEC,
                             message='Failed to run command: {}'.format(cmd),
+                            response=r)
+        return response(E_OK, response=r)
+
+    def put(self, source, dest, recursive=False):
+        """
+        Put (upload) files to the system
+        """
+        log.info('Put %s to %s (recursive=%s)', source, dest, recursive)
+
+        r = self.ssh_client.put(source, dest, recursive=recursive)
+        if r['returncode']:
+            return response(E_SCP_PUT,
+                            message='Failed to put {} to {}'.format(source,
+                                                                    dest),
                             response=r)
         return response(E_OK, response=r)
 
@@ -458,6 +485,18 @@ def do_state(args):
         print('Off')
     else:
         print(resp['SystemState'])
+    return r['returncode']
+
+@add_help('Put (upload) files to system')
+@add_arg('source', metavar='SOURCE', nargs='+',
+         help='File or directory to upload')
+@add_arg('dest', metavar='DEST',
+         help='Destination directory (must exist)')
+@add_arg('-r', '--recursive', action='store_true',
+         help='Recursively put entire directories')
+def do_put(args):
+    system = System(args)
+    r = system.put(args.source, args.dest, recursive=args.recursive)
     return r['returncode']
 
 # -----------------------------------------------------------------------------
