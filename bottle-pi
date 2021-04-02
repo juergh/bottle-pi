@@ -201,6 +201,12 @@ def get_Systems_name(name):
         'Id': name,
         'SerialNumber': system['serialnumber'],
         'Model': system['model'],
+        'Features': [
+            {
+                'Name': key,
+                'Value': val
+            } for key, val in (system['features'] or {}).items()
+        ],
         'HostName': system['hostname'],
         'PowerState': 'On' if is_poweron(system) else 'Off',
         'Gpios': [
