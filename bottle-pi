@@ -36,27 +36,38 @@ IMAGES = None
 
 app = bottle.Bottle()
 
-def is_poweroff(system):
+def gpio_input(system, name):
     """
-    Is the system powered on?
+    Read a GPIO
     """
-    return gpio.input(system['power']) == gpio.LOW
+    for key, val in system['gpios'].items():
+        if key == name:
+            return gpio.input(val)
+    return None
 
-def poweroff(system):
+def gpio_output(system, name, value):
     """
-    Power off a system
+    Write a GPIO
     """
-    if is_poweroff(system):
-        return
+    for key, val in system['gpios'].items():
+        if key == name:
+            return gpio.output(val, value)
+    return None
 
-    # Power off
-    gpio.output(system['power'], gpio.LOW)
+def gpio_setup(system, name, value):
+    """
+    Setup a GPIO
+    """
+    for key, val in system['gpios'].items():
+        if key == name:
+            return gpio.setup(val, value)
+    return None
 
 def is_poweron(system):
     """
-    Is the system powered off?
+    Is the system powered on?
     """
-    return gpio.input(system['power']) == gpio.HIGH
+    return gpio_input(system, 'power') == gpio.HIGH
 
 def poweron(system, update=False):
     """
@@ -67,19 +78,29 @@ def poweron(system, update=False):
 
     if update:
         # Invoke the installer by driving the gpio4 pin low
-        gpio.output(system['gpio4'], gpio.LOW)
+        gpio_output(system, 'gpio4', gpio.LOW)
     else:
         # Make sure the installer is not invoked
-        gpio.output(system['gpio4'], gpio.HIGH)
+        gpio_output(system, 'gpio4', gpio.HIGH)
 
     # Power on
-    gpio.output(system['power'], gpio.HIGH)
+    gpio_output(system, 'power', gpio.HIGH)
 
     if update:
         # Keep driving the gpio4 pin low for a bit to give the Pi firmware
         # enough time to sample its state
         time.sleep(20)
-        gpio.output(system['gpio4'], gpio.HIGH)
+        gpio_output(system, 'gpio4', gpio.HIGH)
+
+def poweroff(system):
+    """
+    Power off a system
+    """
+    if not is_poweron(system):
+        return
+
+    # Power off
+    gpio_output(system, 'power', gpio.LOW)
 
 def reset(system, update=False):
     """
@@ -211,10 +232,10 @@ def get_Systems_name(name):
         'PowerState': 'On' if is_poweron(system) else 'Off',
         'Gpios': [
             {
-                'Name': name,
-                'Pin': system[name],
-                'Value': gpio.input(system[name])
-            } for name in ('gpio4', 'power')
+                'Name': key,
+                'Pin': val,
+                'Value': gpio_input(system, val)
+            } for key, val in system['gpios'].items()
         ],
         'Actions': {
             '#ComputerSystem.Reset': {
@@ -325,8 +346,8 @@ if __name__ == '__main__':
 
     # Setup the GPIOs
     for _, system in SYSTEMS.items():
-        gpio.setup(system['power'], gpio.OUT)
-        gpio.setup(system['gpio4'], gpio.OUT)
+        gpio_setup(system, 'power', gpio.OUT)
+        gpio_setup(system, 'gpio4', gpio.OUT)
 
     # Run the bottle server
     bottle.run(app, host='0.0.0.0', port=CONFIGS['port'], server='cherrypy',
