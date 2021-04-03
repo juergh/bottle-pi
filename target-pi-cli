@@ -424,12 +424,13 @@ def do_reboot(args):
     return r['returncode']
 
 @add_help('Shut down system')
-@add_arg('-t', '--timeout', metavar='secs', default=0, type=int,
-         help='Give up waiting for the system to shut down after <secs> ' +
-         'seconds')
 def do_shutdown(args):
     system = System(args)
-    r = system.shutdown(timeout=args.timeout)
+    r = system.shutdown(timeout=10)
+    if r['returncode'] == 0:
+        # Give it some additional time to fully shut down
+        time.sleep(10)
+    system.poweroff()
     print_json(r)
     return r['returncode']
 
@@ -455,15 +456,9 @@ def do_poweroff(args):
 @add_arg('-t', '--timeout', metavar='secs', default=0, type=int,
          help='Give up waiting for the system to come up after <secs> seconds')
 def do_update(args):
+    do_shutdown(args)
     system = System(args)
-    now = time.time()
-    r = system.shutdown(timeout=10)
-    if r['returncode'] == 0:
-        # Give it some more time to fully shut down
-        time.sleep(10)
-    system.poweroff()
-    timeout = args.timeout + now - time.time()
-    r = system.update(args.image, timeout=timeout)
+    r = system.update(args.image, timeout=args.timeout)
     return r['returncode']
 
 @add_help('Run a remote command')
