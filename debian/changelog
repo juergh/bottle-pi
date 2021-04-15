@@ -1,3 +1,16 @@
+bottle-pi (0.0.11) unstable; urgency=medium
+
+  * Add basic logging infrastructure
+  * Convert the GPIOs to a named list
+  * target-pi-cli: Poweroff the system after shutting it down
+  * Return system features
+  * config: Add features and a new cm4 model
+  * Add serialport and tcpport information to bottle-pi.config
+  * target-pi-cli: Add 'put' subcommand
+  * target-pi-cli: Print subcommand-specific help text
+
+ -- Juerg Haefliger <juergh@canonical.com>  Thu, 15 Apr 2021 15:39:48 +0200
+
 bottle-pi (0.0.10) unstable; urgency=medium
 
   * target-pi-cli: Set an explicit SSH error state
