@@ -241,7 +241,7 @@ def get_Systems_name(name):
             {
                 'Name': key,
                 'Pin': val,
-                'Value': gpio_input(system, val)
+                'Value': gpio_input(system, key)
             } for key, val in system['gpios'].items()
         ],
         'Actions': {
