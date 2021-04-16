@@ -24,12 +24,12 @@ except ModuleNotFoundError:
         val = {}
         def setmode(_val):  # noqa: E301 / pylint: disable=E0213
             pass
-        def setup(_pin, _val, _initial=None):  # noqa: E301 / pylint: disable=E0213
-            pass
+        def setup(pin, _val, _initial=None):  # noqa: E301 / pylint: disable=E0213
+            gpio.val[pin] = 'x'
         def output(pin, val):  # noqa: E301 / pylint: disable=E0213
             gpio.val[pin] = val
         def input(pin):  # noqa: E301 / pylint: disable=E0213
-            return gpio.val.get(pin, gpio.LOW)
+            return gpio.val.get(pin, 'x')
 
 CONFIGS = None
 SYSTEMS = None
