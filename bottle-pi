@@ -38,37 +38,43 @@ IMAGES = None
 app = bottle.Bottle()
 
 def pr_debug(system, fmt, *args):
-    logging.debug('%s: ' + fmt, system['hostname'], *args)
+    logging.debug('[%s] ' + fmt, system['hostname'], *args)
 
 def gpio_input(system, name):
     """
     Read a GPIO
     """
-    pr_debug(system, 'gpio_input (name=%s)', name)
+    value = None
     for key, val in system['gpios'].items():
         if key == name:
-            return gpio.input(val)
-    return None
+            value = gpio.input(val)
+            break
+    pr_debug(system, 'gpio_input (name=%s, value=%s)', name, value)
+    return value
 
 def gpio_output(system, name, value):
     """
     Write a GPIO
     """
-    pr_debug(system, 'gpio_output (name=%s, value=%s)', name, value)
+    rc = None
     for key, val in system['gpios'].items():
         if key == name:
-            return gpio.output(val, value)
-    return None
+            rc = gpio.output(val, value)
+            break
+    pr_debug(system, 'gpio_output (name=%s, value=%s, rc=%s)', name, value, rc)
+    return rc
 
 def gpio_setup(system, name, value):
     """
     Setup a GPIO
     """
-    pr_debug(system, 'gpio_setup (name=%s, value=%s)', name, value)
+    rc = None
     for key, val in system['gpios'].items():
         if key == name:
-            return gpio.setup(val, value)
-    return None
+            rc = gpio.setup(val, value)
+            break
+    pr_debug(system, 'gpio_setup (name=%s, value=%s, rc=%s)', name, value, rc)
+    return rc
 
 def is_poweron(system):
     """
