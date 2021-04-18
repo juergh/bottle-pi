@@ -1,0 +1,217 @@
+#! /usr/bin/env python3
+#
+# Bridge the serial and TCP ports
+#
+
+import argparse
+import logging
+import os
+import select
+import signal
+import socket
+import sys
+import threading
+import yaml
+
+import serial
+
+def pr_info(system, fmt, *args):
+    logging.info('[%s] ' + fmt, system['hostname'], *args)
+
+class Bridge(threading.Thread):
+    def __init__(self, system):
+        super().__init__()
+        self.system = system
+        self.serial_port = system['serialport']
+        self.socket_addr = ('', system['tcpport'])
+        self.serial = None
+        self.socket = None
+        self.conn = None
+        self.conn_addr = None
+        self.alive = False
+        self.start()
+
+    def close_serial(self):
+        """
+        Close the serial port
+        """
+        if not self.serial:
+            return
+
+        pr_info(self.system, 'Closing serial port %s', self.serial_port)
+        self.send_conn('[-- Closing serial port {} --]\n'.
+                       format(self.serial_port).encode())
+        self.serial.close()
+        self.serial = None
+
+    def close_conn(self):
+        """
+        Close the client connection
+        """
+        if not self.conn:
+            return
+
+        pr_info(self.system, 'Closing connection from %s', self.conn_addr)
+        self.send_conn('[-- Disconnecting --]\n'.encode())
+        try:
+            self.conn.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        self.conn.close()
+        self.conn = None
+
+    def send_conn(self, data):
+        """
+        Send data to the client connection
+        """
+        if not self.conn:
+            return
+
+        try:
+            self.conn.sendall(data)
+        except (BrokenPipeError, OSError):
+            # Connection is down
+            pass
+
+    def close_socket(self):
+        """
+        CLose the server socket
+        """
+        if not self.socket:
+            return
+
+        pr_info(self.system, 'Stop listening on %s', self.socket_addr)
+        try:
+            self.socket.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        self.socket.close()
+        self.socket = None
+
+    def stop(self):
+        """
+        Stop the bridge worker
+        """
+        pr_info(self.system, 'Stopping bridge')
+        self.alive = False
+        self.close_serial()
+        self.close_conn()
+        self.close_socket()
+        self.join()
+
+    def run(self):
+        """
+        Bridge worker
+        """
+        pr_info(self.system, 'Starting bridge')
+
+        # Create the server socket, bind it to host:port and start listening
+        try:
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.socket.bind(self.socket_addr)
+            self.socket.listen(1)
+            pr_info(self.system, 'Listening on %s', self.socket_addr)
+        except OSError as e:
+            if e.errno == 98:  # Address already in use
+                pr_info(self.system, 'Address %s already in use',
+                        self.socket_addr)
+                self.close_socket()
+                return
+            raise
+
+        self.alive = True
+        while self.alive:
+            try:
+                # Wait for a client connection
+                self.conn, self.conn_addr = self.socket.accept()
+                pr_info(self.system, 'Connection established from %s',
+                        self.conn_addr)
+                self.send_conn('[-- Connected --]\n'.encode())
+
+                # More quickly detect bad clients who quit without closing the
+                # connection: After 1 second of idle, start sending TCP
+                # keep-alive packets every 1 second. If 3 consecutive
+                # keep-alive packets fail, assume the client is gone and close
+                # the connection.
+                self.conn.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                self.conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1)
+                self.conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 1)
+                self.conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
+                self.conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+                # Open the serial port
+                self.serial = serial.Serial(port=self.serial_port,
+                                            baudrate=115200, timeout=0)
+                pr_info(self.system, 'Serial port %s is up', self.serial_port)
+                self.send_conn('[-- Serial port {} is up --]\n'.
+                               format(self.serial_port).encode())
+
+                # Read data from serial port and send to client
+                while self.alive:
+                    _rr, _rw, _ie = select.select([self.conn, ],
+                                                  [self.conn, ], [], 5)
+                    data = self.serial.read(self.serial.in_waiting)
+                    self.conn.sendall(data)
+
+            except serial.serialutil.SerialException as e:
+                pr_info(self.system, 'Serial port %s is down (%s)',
+                        self.serial_port, e.errno)
+                self.send_conn('[-- Serial port {} is down ({}) --]\n'.
+                               format(self.serial_port, e.errno).encode())
+
+            except BrokenPipeError as e:
+                # Client disconnect
+                pr_info(self.system, 'Connection from %s is down (%s)',
+                        self.conn_addr, e.errno)
+
+            except OSError as e:
+                if e.errno == 22:  # Invalid argument (socket shutdown)
+                    pass
+                else:
+                    raise
+
+            # Close the serial port and client connection
+            self.close_serial()
+            self.close_conn()
+
+        # Close the server socket
+        self.close_socket()
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--debug', action='store_true')
+    args = parser.parse_args()
+
+    # Setup the logger
+    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S',
+                        level=logging.DEBUG if args.debug else logging.INFO)
+
+    # Load the config file
+    configs = None
+    for f in ['./bottle-pi.config', '/etc/bottle-pi.config']:
+        if os.path.exists(f):
+            with open(f) as fh:
+                configs = yaml.load(fh, Loader=yaml.SafeLoader)
+            break
+    if configs is None:
+        logging.error('Unable to load bottle-pi.config')
+        sys.exit(1)
+
+    # Create the bridge threads and start them
+    bridges = []
+    for _, system in configs['systems'].items():
+        b = Bridge(system)
+        bridges.append(b)
+
+    # Define and install the exit handler
+    def stop_all(sig, frame):
+        for b in bridges:
+            b.stop()
+    signal.signal(signal.SIGINT, stop_all)
+    signal.signal(signal.SIGTERM, stop_all)
+
+    # Wait for all bridge threads to finish
+    for b in bridges:
+        b.join()
