@@ -8,6 +8,8 @@ User=bottle-pi
 ExecStart=/usr/bin/bottle-pi
 Restart=always
 RestartSec=2
+StandardOutput=journal
+StandardError=inherit
 
 [Install]
 WantedBy=multi-user.target
