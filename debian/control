@@ -1,5 +1,5 @@
 Source: bottle-pi
-Section: unknown
+Section: misc
 Priority: optional
 Maintainer: Juerg Haefliger <juergh@canonical.com>
 Build-Depends: debhelper-compat (= 12)
