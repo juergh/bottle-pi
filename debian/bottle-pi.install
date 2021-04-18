@@ -1,3 +1,4 @@
 99-ttyusb.rules /etc/udev/rules.d/
 bottle-pi /usr/bin/
+bottle-pi-bridge /usr/bin/
 bottle-pi.config /etc/
