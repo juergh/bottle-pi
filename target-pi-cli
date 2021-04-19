@@ -516,10 +516,10 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--log-level', choices=('0', '1', '2', '3', '4'),
                         default='3',
                         help='Set the logging level (0: critical, 1: error, ' +
-                        '2: warning, 3:info, 4:debug), default: 3')
+                        '2: warning, 3: info, 4: debug), default: 3')
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Only show criticals and errors (equivalent to ' +
-                        '--level=1)')
+                        '--log-level=1)')
 
     # Add subparsers for the subcommands and walk through the 'do_' functions
     subparsers = parser.add_subparsers(dest='subcommand', title='subcommands',
