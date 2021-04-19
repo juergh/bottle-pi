@@ -222,6 +222,11 @@ class System():
         """
         log.info('Run command: %s', cmd)
 
+        state = self.system['SystemState']
+        if state not in ('RootAccess', 'UserAccess'):
+            return response(E_NO_ACCESS,
+                            message='Invalid system state: {}'.format(state))
+
         r = self.ssh_client.run(cmd)
         if r['returncode']:
             return response(E_SSH_EXEC,
@@ -234,6 +239,11 @@ class System():
         Put (upload) files to the system
         """
         log.info('Put %s to %s (recursive=%s)', source, dest, recursive)
+
+        state = self.system['SystemState']
+        if state not in ('RootAccess', 'UserAccess'):
+            return response(E_NO_ACCESS,
+                            message='Invalid system state: {}'.format(state))
 
         r = self.ssh_client.put(source, dest, recursive=recursive)
         if r['returncode']:
@@ -314,12 +324,12 @@ class System():
         """
         Reboot the system
         """
+        log.info('Reboot system (timeout=%d)', timeout)
+
         state = self.system['SystemState']
         if state != 'RootAccess':
             return response(E_NO_ROOT_ACCESS,
                             message='Invalid system state: {}'.format(state))
-
-        log.info('Reboot system (timeout=%d)', timeout)
 
         # Reboot the system
         r = self.run('( sudo reboot >/dev/null 2>&1 & ) &')
@@ -343,12 +353,12 @@ class System():
         """
         Shutdown the system
         """
+        log.info('Shut down system (timeout=%d)', timeout)
+
         state = self.system['SystemState']
         if state != 'RootAccess':
             return response(E_NO_ROOT_ACCESS,
                             message='Invalid system state: {}'.format(state))
-
-        log.info('Shut down system (timeout=%d)', timeout)
 
         # Poweroff the system
         r = self.run('( sudo poweroff >/dev/null 2>&1 & ) &')
