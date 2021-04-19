@@ -20,12 +20,12 @@ SSH_USER = 'ubuntu'
 SSH_PASS = 'ubuntu'
 
 E_OK = ''
-E_UNKNOWN = 'Unknown.Failure'
-E_SSH_EXEC = 'Ssh.Command.Execution.Failure'
-E_NO_ROOT_ACCESS = 'No.Root.Access'
-E_NO_ACCESS = 'No.Access'
-E_TIME_OUT = 'Operation.Timed.Out'
-E_SCP_PUT = 'Scp.Put.Failure'
+E_UNKNOWN = 'Unknown_Failure'
+E_SSH_EXEC = 'Ssh_Command_Execution_Failure'
+E_ROOT_ACCESS = 'Root_Access_Failure'
+E_ACCESS = 'Access_Failure'
+E_TIMEOUT = 'Operation_Timeout_Failure'
+E_SCP_PUT = 'Scp_Put_Failure'
 
 def response(error, message='', response=''):
     """
@@ -224,7 +224,7 @@ class System():
 
         state = self.system['SystemState']
         if state not in ('RootAccess', 'UserAccess'):
-            return response(E_NO_ACCESS,
+            return response(E_ACCESS,
                             message='Invalid system state: {}'.format(state))
 
         r = self.ssh_client.run(cmd)
@@ -242,7 +242,7 @@ class System():
 
         state = self.system['SystemState']
         if state not in ('RootAccess', 'UserAccess'):
-            return response(E_NO_ACCESS,
+            return response(E_ACCESS,
                             message='Invalid system state: {}'.format(state))
 
         r = self.ssh_client.put(source, dest, recursive=recursive)
@@ -266,7 +266,7 @@ class System():
                 log.info('System is down')
                 return response(E_OK)
         log.info('Timed out waiting for system to go down')
-        return response(E_TIME_OUT,
+        return response(E_TIMEOUT,
                         message='Timed out waiting for system to go down')
 
     def wait_up(self, timeout, interval=5):
@@ -282,7 +282,7 @@ class System():
                 log.info('System is up')
                 return response(E_OK)
         log.info('Timed out waiting for system to come up')
-        return response(E_TIME_OUT,
+        return response(E_TIMEOUT,
                         message='Timed out waiting for system to come up')
 
     def info(self):
@@ -328,7 +328,7 @@ class System():
 
         state = self.system['SystemState']
         if state != 'RootAccess':
-            return response(E_NO_ROOT_ACCESS,
+            return response(E_ROOT_ACCESS,
                             message='Invalid system state: {}'.format(state))
 
         # Reboot the system
@@ -357,7 +357,7 @@ class System():
 
         state = self.system['SystemState']
         if state != 'RootAccess':
-            return response(E_NO_ROOT_ACCESS,
+            return response(E_ROOT_ACCESS,
                             message='Invalid system state: {}'.format(state))
 
         # Poweroff the system
