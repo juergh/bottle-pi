@@ -195,6 +195,7 @@ class System():
         Get OS information
         """
         log.info('Refresh OS information')
+
         if self.system['SystemState'] not in ('RootAccess', 'UserAccess'):
             info = 'Unavailable'
         else:
@@ -454,7 +455,7 @@ def do_shutdown(args):
     if r['returncode'] == 0:
         # Give it some additional time to fully shut down
         time.sleep(10)
-    system.poweroff()
+    r = system.poweroff()
     print_json(r)
     return r['returncode']
 
@@ -499,11 +500,10 @@ def do_state(args):
     r = system.info()
     if r['returncode']:
         return r['returncode']
-    resp = r['response']
-    if resp['PowerState'] == 'Off':
+    if r['response']['PowerState'] == 'Off':
         print('Off')
     else:
-        print(resp['SystemState'])
+        print(r['response']['SystemState'])
     return r['returncode']
 
 @add_help('Put (upload) files to system')
