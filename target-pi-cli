@@ -186,6 +186,8 @@ class System():
                 state = 'ConnectionResetError'
             except paramiko.ssh_exception.AuthenticationException:
                 state = 'AuthenticationError'
+            except paramiko.ssh_exception.SSHException:
+                state = 'SshError'
         self.system['SystemState'] = state
 
     def refresh_os_info(self):
