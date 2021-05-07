@@ -1,3 +1,22 @@
+bottle-pi (0.0.14) unstable; urgency=medium
+
+  * Add debug output
+  * Rename Gpio, System and Image classes to <foo>Collection
+  * Rename GPIO to GPIOS
+  * Introduce Image() class
+  * Introduce System() class
+  * Switch from RPi.GPIO to gpiod
+  * config: Update the serial ports
+  * target-pi-cli: Evaluate the response of the last command
+  * target-pi-cli: Handle paramiko.ssh_exception.SSHException
+  * target-pi-cli: Make the returned reponses more consistent
+  * target-pi-cli: Fix the help text
+  * target-pi-cli: Cleanup error codes
+  * target-pi-cli: Check system state before performing ssh/scp
+    operations
+
+ -- Juerg Haefliger <juergh@canonical.com>  Fri, 07 May 2021 19:40:54 +0200
+
 bottle-pi (0.0.13) unstable; urgency=medium
 
   * debian/control: Set the section to 'misc'
