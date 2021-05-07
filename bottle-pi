@@ -136,6 +136,7 @@ class ImageCollection():
         """
         Refresh all images
         """
+        pr_debug(None, 'Image.refresh')
         self.images = {}
         for name in os.listdir(self.pathname):
             filename = os.path.join(self.pathname, name)
