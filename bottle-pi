@@ -148,7 +148,7 @@ class Image():
         return {}
 
 # Mapping of header pins to gpio lines
-GPIO = None
+GPIOS = None
 GPIO_PIN_LINE_MAP = {
      '3':  2,  '5':  3,  '7':  4,  '8': 14, '10': 15,  # noqa: E126, E241
     '11': 17, '12': 18, '13': 27, '15': 22, '16': 23,  # noqa: E131
@@ -173,7 +173,7 @@ def is_poweron(system):
     """
     Is the system powered on?
     """
-    return GPIO.get_value(system, 'power') == 1
+    return GPIOS.get_value(system, 'power') == 1
 
 def poweron(system, update=False):
     """
@@ -184,19 +184,19 @@ def poweron(system, update=False):
 
     if update:
         # Invoke the installer by driving the gpio4 pin low
-        GPIO.set_value(system, 'gpio4', 0)
+        GPIOS.set_value(system, 'gpio4', 0)
     else:
         # Make sure the installer is not invoked
-        GPIO.set_value(system, 'gpio4', 1)
+        GPIOS.set_value(system, 'gpio4', 1)
 
     # Power on
-    GPIO.set_value(system, 'power', 1)
+    GPIOS.set_value(system, 'power', 1)
 
     if update:
         # Keep driving the gpio4 pin low for a bit to give the Pi firmware
         # enough time to sample its state
         time.sleep(20)
-        GPIO.set_value(system, 'gpio4', 1)
+        GPIOS.set_value(system, 'gpio4', 1)
 
 def poweroff(system):
     """
@@ -206,7 +206,7 @@ def poweroff(system):
         return
 
     # Power off
-    GPIO.set_value(system, 'power', 0)
+    GPIOS.set_value(system, 'power', 0)
 
 def reset(system, update=False):
     """
@@ -296,7 +296,7 @@ def get_Systems_name(name):
             {
                 'Name': key,
                 'Pin': val,
-                'Value': GPIO.get_value(system, key)
+                'Value': GPIOS.get_value(system, key)
             } for key, val in system['gpios'].items()
         ],
         'Actions': {
@@ -410,10 +410,10 @@ if __name__ == '__main__':
     IMAGES = Image(configs)
 
     # Request the GPIOs
-    GPIO = Gpio('gpiochip0')
+    GPIOS = Gpio('gpiochip0')
     for _, system in SYSTEMS.items():
-        GPIO.request(system, 'power', gpiod.LINE_REQ_DIR_OUT)
-        GPIO.request(system, 'gpio4', gpiod.LINE_REQ_DIR_OUT)
+        GPIOS.request(system, 'power', gpiod.LINE_REQ_DIR_OUT)
+        GPIOS.request(system, 'gpio4', gpiod.LINE_REQ_DIR_OUT)
 
     # Run the bottle server
     bottle.run(app, host='0.0.0.0', port=configs['port'], server='cherrypy',
