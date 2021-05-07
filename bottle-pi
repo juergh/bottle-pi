@@ -14,22 +14,88 @@ import bottle
 import cherrypy  # noqa: F401 / pylint: disable=W0611
 
 try:
-    import RPi.GPIO as gpio
+    import gpiod
 except ModuleNotFoundError:
-    class gpio():
-        BOARD = 0
-        OUT = 0
-        LOW = 0
-        HIGH = 1
-        val = {}
-        def setmode(_val):  # noqa: E301 / pylint: disable=E0213
-            pass
-        def setup(pin, _val, _initial=None):  # noqa: E301 / pylint: disable=E0213
-            gpio.val[pin] = 'x'
-        def output(pin, val):  # noqa: E301 / pylint: disable=E0213
-            gpio.val[pin] = val
-        def input(pin):  # noqa: E301 / pylint: disable=E0213
-            return gpio.val.get(pin, 'x')
+    class gpiod():
+        LINE_REQ_DIR_OUT = 0
+        LINE_REQ_DIR_AS_IS = 1
+        class Line():  # noqa: E301
+            def __init__(self, chip, num):
+                self.chip = chip
+                self.num = num
+            def request(self, *_args, **_kwargs):  # noqa: E301
+                pass
+            def release(self):  # noqa: E301
+                pass
+            def get_value(self):  # noqa: E301
+                return self.chip.val.get(self.num, -1)
+            def set_value(self, value):  # noqa: E301
+                self.chip.val[self.num] = value
+        class Chip():  # noqa: E301
+            def __init__(self, *_args, **_kwargs):
+                self.val = {}
+            def get_line(self, num):  # noqa: E301
+                return gpiod.Line(self, num)
+
+class Gpio():
+    """
+    Simple GPIO class
+    """
+    def __init__(self, chip):
+        self.chip = gpiod.Chip(chip)
+        self.lines = {}
+
+    def request(self, system, name, req_type):
+        """
+        Request a GPIO
+        """
+        pin = str(system['gpios'][name])
+        if pin in self.lines:
+            # Already requested
+            return
+
+        pr_debug(system, 'Gpio.request (name=%s, pin=%s, type=%s)', name, pin,
+                 req_type)
+        line = self.chip.get_line(GPIO_PIN_LINE_MAP[pin])
+        default_val = None
+        if req_type == gpiod.LINE_REQ_DIR_OUT:
+            line.request(consumer='bottle-pi', type=gpiod.LINE_REQ_DIR_AS_IS)
+            default_val = line.get_value()
+            line.release()
+        line.request(consumer='bottle-pi', type=req_type, default_val=default_val)
+        self.lines[pin] = line
+
+    def get_value(self, system, name):
+        """
+        Read a GPIO
+        """
+        pin = str(system['gpios'][name])
+        line = self.lines[pin]
+        value = line.get_value()
+        pr_debug(system, 'Gpio.get_value (name=%s, pin=%s, value=%s)', name, pin,
+                 value)
+        return value
+
+    def set_value(self, system, name, value):
+        """
+        Write a GPIO
+        """
+        pin = str(system['gpios'][name])
+        pr_debug(system, 'Gpio.set_value (name=%s, pin=%s, value=%s)', name, pin,
+                 value)
+        line = self.lines[pin]
+        line.set_value(value)
+
+# Mapping of header pins to gpio lines
+GPIO = None
+GPIO_PIN_LINE_MAP = {
+     '3':  2,  '5':  3,  '7':  4,  '8': 14, '10': 15,  # noqa: E126, E241
+    '11': 17, '12': 18, '13': 27, '15': 22, '16': 23,  # noqa: E131
+    '18': 24, '19': 10, '21':  9, '22': 25, '23': 11,  # noqa: E241
+    '24':  8, '26':  7, '27':  0, '28':  1, '29':  5,  # noqa: E241
+    '31':  6, '32': 12, '33': 13, '35': 19, '36': 16,  # noqa: E241
+    '37': 26, '38': 20, '40': 21,
+}
 
 CONFIGS = None
 SYSTEMS = None
@@ -40,47 +106,11 @@ app = bottle.Bottle()
 def pr_debug(system, fmt, *args):
     logging.debug('[%s] ' + fmt, system['hostname'], *args)
 
-def gpio_input(system, name):
-    """
-    Read a GPIO
-    """
-    value = None
-    for key, val in system['gpios'].items():
-        if key == name:
-            value = gpio.input(val)
-            break
-    pr_debug(system, 'gpio_input (name=%s, value=%s)', name, value)
-    return value
-
-def gpio_output(system, name, value):
-    """
-    Write a GPIO
-    """
-    rc = None
-    for key, val in system['gpios'].items():
-        if key == name:
-            rc = gpio.output(val, value)
-            break
-    pr_debug(system, 'gpio_output (name=%s, value=%s, rc=%s)', name, value, rc)
-    return rc
-
-def gpio_setup(system, name, value):
-    """
-    Setup a GPIO
-    """
-    rc = None
-    for key, val in system['gpios'].items():
-        if key == name:
-            rc = gpio.setup(val, value)
-            break
-    pr_debug(system, 'gpio_setup (name=%s, value=%s, rc=%s)', name, value, rc)
-    return rc
-
 def is_poweron(system):
     """
     Is the system powered on?
     """
-    return gpio_input(system, 'power') == gpio.HIGH
+    return GPIO.get_value(system, 'power') == 1
 
 def poweron(system, update=False):
     """
@@ -91,19 +121,19 @@ def poweron(system, update=False):
 
     if update:
         # Invoke the installer by driving the gpio4 pin low
-        gpio_output(system, 'gpio4', gpio.LOW)
+        GPIO.set_value(system, 'gpio4', 0)
     else:
         # Make sure the installer is not invoked
-        gpio_output(system, 'gpio4', gpio.HIGH)
+        GPIO.set_value(system, 'gpio4', 1)
 
     # Power on
-    gpio_output(system, 'power', gpio.HIGH)
+    GPIO.set_value(system, 'power', 1)
 
     if update:
         # Keep driving the gpio4 pin low for a bit to give the Pi firmware
         # enough time to sample its state
         time.sleep(20)
-        gpio_output(system, 'gpio4', gpio.HIGH)
+        GPIO.set_value(system, 'gpio4', 1)
 
 def poweroff(system):
     """
@@ -113,7 +143,7 @@ def poweroff(system):
         return
 
     # Power off
-    gpio_output(system, 'power', gpio.LOW)
+    GPIO.set_value(system, 'power', 0)
 
 def reset(system, update=False):
     """
@@ -247,7 +277,7 @@ def get_Systems_name(name):
             {
                 'Name': key,
                 'Pin': val,
-                'Value': gpio_input(system, key)
+                'Value': GPIO.get_value(system, key)
             } for key, val in system['gpios'].items()
         ],
         'Actions': {
@@ -338,6 +368,7 @@ def get_ComputerSystem_Update_Delete_name(name):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--debug', action='store_true')
+    parser.add_argument('-r', '--reloader', action='store_true')
     args = parser.parse_args()
 
     # Setup the logger
@@ -359,14 +390,12 @@ if __name__ == '__main__':
     SYSTEMS_discover()
     IMAGES_discover()
 
-    # Use board pin numbers
-    gpio.setmode(gpio.BOARD)
-
-    # Setup the GPIOs
+    # Request the GPIOs
+    GPIO = Gpio('gpiochip0')
     for _, system in SYSTEMS.items():
-        gpio_setup(system, 'power', gpio.OUT)
-        gpio_setup(system, 'gpio4', gpio.OUT)
+        GPIO.request(system, 'power', gpiod.LINE_REQ_DIR_OUT)
+        GPIO.request(system, 'gpio4', gpiod.LINE_REQ_DIR_OUT)
 
     # Run the bottle server
     bottle.run(app, host='0.0.0.0', port=CONFIGS['port'], server='cherrypy',
-               reloader=args.debug, debug=args.debug)
+               debug=args.debug, reloader=args.reloader)
