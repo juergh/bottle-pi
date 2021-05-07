@@ -92,17 +92,58 @@ class System():
     """
     def __init__(self, configs):
         self.systems = configs['systems']
-        pr_debug(None, self.systems)
+        pr_debug(None, 'Systems: %s', self.systems)
 
     def items(self):
+        """
+        Return all system items
+        """
         return self.systems.items()
 
     def get(self, name):
+        """
+        Return a system dict
+        """
         if name in self.systems:
             return self.systems[name]
         for _, system in self.systems.items():
             if system['hostname'] == name:
                 return system
+        bottle.abort(404)
+        return {}
+
+class Image():
+    """
+    A simple image class
+    """
+    def __init__(self, configs):
+        self.pathname = configs['images']['pathname']
+        self.images = {}
+        self.refresh()
+        pr_debug(None, 'Images: %s', self.images)
+
+    def refresh(self):
+        """
+        Refresh all images
+        """
+        self.images = {}
+        for name in os.listdir(self.pathname):
+            filename = os.path.join(self.pathname, name)
+            if os.path.isfile(filename):
+                self.images[name] = {'filename': filename}
+
+    def keys(self):
+        """
+        Return all images keys
+        """
+        return self.images.keys()
+
+    def get(self, name):
+        """
+        Return an image dict
+        """
+        if name in self.images:
+            return self.images[name]
         bottle.abort(404)
         return {}
 
@@ -117,7 +158,6 @@ GPIO_PIN_LINE_MAP = {
     '37': 26, '38': 20, '40': 21,
 }
 
-CONFIGS = None
 SYSTEMS = None
 IMAGES = None
 
@@ -202,44 +242,21 @@ def get_redfish_v1():
 # ----------------------------------------
 # Images
 
-def IMAGES_discover():
-    """
-    Discover the available images
-    """
-    # pylint: disable=W0603
-    global IMAGES
-
-    IMAGES = {}
-    images_pathname = CONFIGS['images']['pathname']
-    for name in os.listdir(images_pathname):
-        image_filename = os.path.join(images_pathname, name)
-        if os.path.isfile(image_filename):
-            IMAGES[name] = {'filename': image_filename}
-
-def IMAGES_get(name):
-    """
-    Return an image dict
-    """
-    if name in IMAGES:
-        return IMAGES[name]
-    bottle.abort(404)
-    return {}
-
 @app.get('/redfish/v1/Images')
 def get_Images():
     # Refresh the list of available images
-    IMAGES_discover()
+    IMAGES.refresh()
     return {
         '@odata.id': '/redfish/v1/Images',
-        'Members@odata.count': len(IMAGES),
+        'Members@odata.count': len(IMAGES.keys()),
         'Members': [
-            {'@odata.id': '/redfish/v1/Images/' + name} for name in IMAGES
+            {'@odata.id': '/redfish/v1/Images/' + name} for name in IMAGES.keys()
         ],
     }
 
 @app.get('/redfish/v1/Images/<name>')
 def get_Images_name(name):
-    image = IMAGES_get(name)
+    image = IMAGES.get(name)
     return bottle.static_file(image['filename'], root='/')
 
 # ----------------------------------------
@@ -296,7 +313,7 @@ def get_Systems_name(name):
                 'target': '/redfish/v1/Systems/' + name +
                           '/Actions/ComputerSystem.Update',
                 'Image@Redfish.AllowableValues': [
-                    '/redfish/v1/Images/' + name for name in IMAGES
+                    '/redfish/v1/Images/' + name for name in IMAGES.keys()
                 ],
             },
         },
@@ -379,20 +396,18 @@ if __name__ == '__main__':
                         level=logging.DEBUG if args.debug else logging.INFO)
 
     # Load the config file
-    CONFIGS = None
+    configs = None
     for f in ['./bottle-pi.config', '/etc/bottle-pi.config']:
         if os.path.exists(f):
             with open(f) as fh:
-                CONFIGS = yaml.load(fh, Loader=yaml.SafeLoader)
+                configs = yaml.load(fh, Loader=yaml.SafeLoader)
             break
-    if CONFIGS is None:
+    if configs is None:
         raise Exception('Unable to load bottle-pi.config')
 
-    # Discover the available systems
-    SYSTEMS = System(CONFIGS)
-
-    # Discover the available  images
-    IMAGES_discover()
+    # Discover the available systems and images
+    SYSTEMS = System(configs)
+    IMAGES = Image(configs)
 
     # Request the GPIOs
     GPIO = Gpio('gpiochip0')
@@ -401,5 +416,5 @@ if __name__ == '__main__':
         GPIO.request(system, 'gpio4', gpiod.LINE_REQ_DIR_OUT)
 
     # Run the bottle server
-    bottle.run(app, host='0.0.0.0', port=CONFIGS['port'], server='cherrypy',
+    bottle.run(app, host='0.0.0.0', port=configs['port'], server='cherrypy',
                debug=args.debug, reloader=args.reloader)
