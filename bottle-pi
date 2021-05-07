@@ -37,9 +37,19 @@ except ModuleNotFoundError:
             def get_line(self, num):  # noqa: E301
                 return gpiod.Line(self, num)
 
-class Gpio():
+# Mapping of header pins to gpio lines
+GPIO_PIN_LINE_MAP = {
+     '3':  2,  '5':  3,  '7':  4,  '8': 14, '10': 15,  # noqa: E126, E241
+    '11': 17, '12': 18, '13': 27, '15': 22, '16': 23,  # noqa: E131
+    '18': 24, '19': 10, '21':  9, '22': 25, '23': 11,  # noqa: E241
+    '24':  8, '26':  7, '27':  0, '28':  1, '29':  5,  # noqa: E241
+    '31':  6, '32': 12, '33': 13, '35': 19, '36': 16,  # noqa: E241
+    '37': 26, '38': 20, '40': 21,
+}
+
+class GpioCollection():
     """
-    Simple GPIO class
+    A collection of GPIOs
     """
     def __init__(self, chip):
         self.chip = gpiod.Chip(chip)
@@ -86,9 +96,9 @@ class Gpio():
         line = self.lines[pin]
         line.set_value(value)
 
-class System():
+class SystemCollection():
     """
-    A simple system class
+    A collection of systems
     """
     def __init__(self, configs):
         self.systems = configs['systems']
@@ -112,9 +122,9 @@ class System():
         bottle.abort(404)
         return {}
 
-class Image():
+class ImageCollection():
     """
-    A simple image class
+    A collection of images
     """
     def __init__(self, configs):
         self.pathname = configs['images']['pathname']
@@ -147,17 +157,7 @@ class Image():
         bottle.abort(404)
         return {}
 
-# Mapping of header pins to gpio lines
 GPIOS = None
-GPIO_PIN_LINE_MAP = {
-     '3':  2,  '5':  3,  '7':  4,  '8': 14, '10': 15,  # noqa: E126, E241
-    '11': 17, '12': 18, '13': 27, '15': 22, '16': 23,  # noqa: E131
-    '18': 24, '19': 10, '21':  9, '22': 25, '23': 11,  # noqa: E241
-    '24':  8, '26':  7, '27':  0, '28':  1, '29':  5,  # noqa: E241
-    '31':  6, '32': 12, '33': 13, '35': 19, '36': 16,  # noqa: E241
-    '37': 26, '38': 20, '40': 21,
-}
-
 SYSTEMS = None
 IMAGES = None
 
@@ -406,11 +406,11 @@ if __name__ == '__main__':
         raise Exception('Unable to load bottle-pi.config')
 
     # Discover the available systems and images
-    SYSTEMS = System(configs)
-    IMAGES = Image(configs)
+    SYSTEMS = SystemCollection(configs)
+    IMAGES = ImageCollection(configs)
 
     # Request the GPIOs
-    GPIOS = Gpio('gpiochip0')
+    GPIOS = GpioCollection('gpiochip0')
     for _, system in SYSTEMS.items():
         GPIOS.request(system, 'power', gpiod.LINE_REQ_DIR_OUT)
         GPIOS.request(system, 'gpio4', gpiod.LINE_REQ_DIR_OUT)
