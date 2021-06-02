@@ -355,7 +355,7 @@ def post_ComputerSystem_Update_name(name):
     image = data.get('Image', '')
     if image:
         if ((os.path.dirname(image) != '/redfish/v1/Images' or
-             os.path.basename(image) not in IMAGES)):
+             os.path.basename(image) not in IMAGES.keys())):
             bottle.abort(400)
         system['update_image'] = image
         system['update_status'] = 'Pending'
