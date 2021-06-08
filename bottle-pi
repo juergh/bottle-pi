@@ -37,16 +37,6 @@ except ModuleNotFoundError:
             def get_line(self, num):  # noqa: E301
                 return gpiod.Line(self, num)
 
-# Mapping of header pins to gpio lines
-GPIO_PIN_LINE_MAP = {
-     '3':  2,  '5':  3,  '7':  4,  '8': 14, '10': 15,  # noqa: E126, E241
-    '11': 17, '12': 18, '13': 27, '15': 22, '16': 23,  # noqa: E131
-    '18': 24, '19': 10, '21':  9, '22': 25, '23': 11,  # noqa: E241
-    '24':  8, '26':  7, '27':  0, '28':  1, '29':  5,  # noqa: E241
-    '31':  6, '32': 12, '33': 13, '35': 19, '36': 16,  # noqa: E241
-    '37': 26, '38': 20, '40': 21,
-}
-
 class GpioCollection():
     """
     A collection of GPIOs
@@ -59,41 +49,42 @@ class GpioCollection():
         """
         Request a GPIO
         """
-        pin = str(system['gpios'][name])
-        if pin in self.lines:
+        gpio = system['gpios'][name]
+        if gpio in self.lines:
             # Already requested
             return
 
-        pr_debug(system, 'Gpio.request (name=%s, pin=%s, type=%s)', name, pin,
-                 req_type)
-        line = self.chip.get_line(GPIO_PIN_LINE_MAP[pin])
+        pr_debug(system, 'Gpio.request (name=%s, gpio=%s, type=%s)', name,
+                 gpio, req_type)
+        line = self.chip.get_line(gpio)
         default_val = None
         if req_type == gpiod.LINE_REQ_DIR_OUT:
             line.request(consumer='bottle-pi', type=gpiod.LINE_REQ_DIR_AS_IS)
             default_val = line.get_value()
             line.release()
-        line.request(consumer='bottle-pi', type=req_type, default_val=default_val)
-        self.lines[pin] = line
+        line.request(consumer='bottle-pi', type=req_type,
+                     default_val=default_val)
+        self.lines[gpio] = line
 
     def get_value(self, system, name):
         """
         Read a GPIO
         """
-        pin = str(system['gpios'][name])
-        line = self.lines[pin]
+        gpio = system['gpios'][name]
+        line = self.lines[gpio]
         value = line.get_value()
-        pr_debug(system, 'Gpio.get_value (name=%s, pin=%s, value=%s)', name, pin,
-                 value)
+        pr_debug(system, 'Gpio.get_value (name=%s, gpio=%s, value=%s)', name,
+                 gpio, value)
         return value
 
     def set_value(self, system, name, value):
         """
         Write a GPIO
         """
-        pin = str(system['gpios'][name])
-        pr_debug(system, 'Gpio.set_value (name=%s, pin=%s, value=%s)', name, pin,
-                 value)
-        line = self.lines[pin]
+        gpio = system['gpios'][name]
+        pr_debug(system, 'Gpio.set_value (name=%s, gpio=%s, value=%s)', name,
+                 gpio, value)
+        line = self.lines[gpio]
         line.set_value(value)
 
 class SystemCollection():
@@ -296,7 +287,7 @@ def get_Systems_name(name):
         'Gpios': [
             {
                 'Name': key,
-                'Pin': val,
+                'Gpio': val,
                 'Value': GPIOS.get_value(system, key)
             } for key, val in system['gpios'].items()
         ],
