@@ -1,0 +1,39 @@
+#!/bin/bash
+#
+# Genereate a sample conserver config file from bottle-pi.config
+#
+
+cat <<EOF
+# Conserver configuration file
+
+default * {
+	master localhost;
+	logfile /var/log/conserver/&.log;
+	timestamp "";
+	rw *;
+	type device;
+	baud 115200;
+	parity none;
+}
+EOF
+
+while read -r x1 x2 x3 rest ; do
+	if [ "${x1}${x2}" = "#Slot" ] ; then
+		echo
+		echo "console slot-${x3} {"
+	fi
+	if [ "${x1}" = "hostname:" ] ; then
+		echo -e "\taliases ${x2};"
+	fi
+	if [ "${x1}" = "serialport:" ] ; then
+		echo -e "\tdevice ${x2};"
+		echo "}"
+	fi
+done < <(cat bottle-pi.config)
+
+cat <<EOF
+
+access * {
+	trusted localhost;
+}
+EOF
