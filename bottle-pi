@@ -200,6 +200,9 @@ def poweroff(system):
     # Power off
     GPIOS.set_value(system, 'power', 0)
 
+    # Set gpio4 to its default value
+    GPIOS.set_value(system, 'gpio4', 1)
+
 def reset(system, update=False):
     """
     Reset a system
