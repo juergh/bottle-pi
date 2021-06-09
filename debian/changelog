@@ -1,3 +1,21 @@
+bottle-pi (0.0.15) unstable; urgency=medium
+
+  * packaging: Drop bottle-pi-bridge systemd service
+  * config: Fix gpios
+  * cli: Add system-set-gpio command
+  * Use 'key' variable instead of 'name' in list comprehension
+  * Add ComputerSystem.SetGpio action
+  * Set gpio4 to its default value on poweroff
+  * gen-conserver-cf: Initial commit
+  * config: Update tcpports
+  * config: Add slot 11 stub
+  * config: Update serialports
+  * config: Use gpio numbers and update to new rack layout
+  * Use gpio line numbers instead of header pin numbers
+  * Iterate over IMAGES.keys()
+
+ -- Juerg Haefliger <juergh@canonical.com>  Wed, 09 Jun 2021 13:44:34 +0200
+
 bottle-pi (0.0.14) unstable; urgency=medium
 
   * Add debug output
