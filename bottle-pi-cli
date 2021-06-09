@@ -130,6 +130,19 @@ def do_system_update_clear(args):
                         '/Actions/ComputerSystem.Update')
     r.raise_for_status()
 
+@add_help('Set system gpio')
+@add_arg('system', help='System name')
+@add_arg('gpio_state', help='Gpio state',
+         choices=['power=0', 'power=1', 'gpio4=0', 'gpio4=1'])
+def do_system_set_gpio(args):
+    # Set system gpio
+    data = {
+        'GpioState': args.gpio_state,
+    }
+    r = requests.post(args.host + '/Systems/' + args.system +
+                      '/Actions/ComputerSystem.SetGpio', json=data)
+    r.raise_for_status()
+
 # -----------------------------------------------------------------------------
 # Main entry point
 
