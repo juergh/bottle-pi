@@ -311,6 +311,14 @@ def get_Systems_name(name):
                     '/redfish/v1/Images/' + name for name in IMAGES.keys()
                 ],
             },
+            '#ComputerSystem.SetGpio': {
+                'target': '/redfish/v1/Systems/' + name +
+                          '/Actions/ComputerSystem.SetGpio',
+                'GpioState@Redfish.AllowableValues': [
+                    key + '=' + val for key in system['gpios'].keys()
+                    for val in ('0', '1')
+                ],
+            },
         },
         'Update': {
             'Image': system.get('update_image', ''),
@@ -321,7 +329,6 @@ def get_Systems_name(name):
 @app.post('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Reset')
 def post_ComputerSystem_Reset_name(name):
     system = SYSTEMS.get(name)
-
     try:
         data = json.load(bottle.request.body)
     except json.decoder.JSONDecodeError:
@@ -340,7 +347,6 @@ def post_ComputerSystem_Reset_name(name):
 @app.post('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update')
 def post_ComputerSystem_Update_name(name):
     system = SYSTEMS.get(name)
-
     try:
         data = json.load(bottle.request.body)
     except json.decoder.JSONDecodeError:
@@ -375,6 +381,23 @@ def delete_ComputerSystem_Update_name(name):
 @app.get('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update.Delete')
 def get_ComputerSystem_Update_Delete_name(name):
     delete_ComputerSystem_Update_name(name)
+
+@app.post('/redfish/v1/Systems/<name>/Actions/ComputerSystem.SetGpio')
+def post_ComputerSystem_SetGpio_name(name):
+    system = SYSTEMS.get(name)
+    try:
+        data = json.load(bottle.request.body)
+    except json.decoder.JSONDecodeError:
+        data = {}
+
+    gpio_state = data.get('GpioState', '')
+    try:
+        name, value = gpio_state.split('=', 1)
+        if name not in system['gpios'] or value not in ('0', '1'):
+            bottle.abort(400)
+        GPIOS.set_value(system, name, int(value))
+    except ValueError:
+        bottle.abort(400)
 
 # -----------------------------------------------------------------------------
 # Main entry point
