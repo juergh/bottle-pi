@@ -416,7 +416,7 @@ class System():
         return response(E_OK)
 
 # -----------------------------------------------------------------------------
-# Helper functions
+# Subcommand helper functions
 
 def _dec(name, *args, **kwargs):
     def _decorator(func):
