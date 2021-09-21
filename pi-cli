@@ -27,12 +27,25 @@ E_ACCESS = 'Access_Failure'
 E_TIMEOUT = 'Operation_Timeout_Failure'
 E_SCP_PUT = 'Scp_Put_Failure'
 
-def print_response(resp):
+def print_response(resp, stdout=False, stderr=False):
     """
     Print a response and return its returncode
     """
-    print(json.dumps(resp, indent=4, sort_keys=True))
-    return resp['returncode']
+    if not stdout and not stderr:
+        print(json.dumps(resp, indent=4, sort_keys=True))
+        return resp['returncode']
+
+    if stdout:
+        stdout = resp['response'].get('stdout')
+        if stdout:
+            print('\n'.join(stdout))
+
+    if stderr:
+        stderr = resp['response'].get('stderr')
+        if stderr:
+            print('\n'.join(stderr))
+
+    return resp['response'].get('returncode', resp['returncode'])
 
 def response(error, message='', response=''):
     """
@@ -486,11 +499,15 @@ def do_update(args):
     return r['returncode']
 
 @add_help('Run a remote command')
+@add_arg('-o', '--stdout', action='store_true',
+         help='Print stdout from the remotely executed command')
+@add_arg('-e', '--stderr', action='store_true',
+         help='Print stderr from the remotely executed command')
 @add_arg('command', help='Command to execute')
 def do_run(args):
     system = System(args)
     r = system.run(args.command)
-    return print_response(r)
+    return print_response(r, stdout=args.stdout, stderr=args.stderr)
 
 @add_help('Show system state')
 def do_state(args):
