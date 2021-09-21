@@ -27,6 +27,13 @@ E_ACCESS = 'Access_Failure'
 E_TIMEOUT = 'Operation_Timeout_Failure'
 E_SCP_PUT = 'Scp_Put_Failure'
 
+def print_response(resp):
+    """
+    Print a response and return its returncode
+    """
+    print(json.dumps(resp, indent=4, sort_keys=True))
+    return resp['returncode']
+
 def response(error, message='', response=''):
     """
     Construct a response
@@ -425,9 +432,6 @@ def add_help(*args, **kwargs):
 def add_arg(*args, **kwargs):
     return _dec('arg', *args, **kwargs)
 
-def print_json(data):
-    print(json.dumps(data, indent=4, sort_keys=True))
-
 # -----------------------------------------------------------------------------
 # Subcommands
 
@@ -435,8 +439,7 @@ def print_json(data):
 def do_info(args):
     system = System(args)
     r = system.info()
-    print_json(r)
-    return r['returncode']
+    return print_response(r)
 
 @add_help('Reboot system')
 @add_arg('-t', '--timeout', metavar='secs', default=0, type=int,
@@ -445,8 +448,7 @@ def do_info(args):
 def do_reboot(args):
     system = System(args)
     r = system.reboot(timeout=args.timeout)
-    print_json(r)
-    return r['returncode']
+    return print_response(r)
 
 @add_help('Shut down system')
 def do_shutdown(args):
@@ -456,8 +458,7 @@ def do_shutdown(args):
         # Give it some additional time to fully shut down
         time.sleep(10)
     r = system.poweroff()
-    print_json(r)
-    return r['returncode']
+    return print_response(r)
 
 @add_help('Power on system')
 @add_arg('-t', '--timeout', metavar='secs', default=0, type=int,
@@ -465,15 +466,13 @@ def do_shutdown(args):
 def do_poweron(args):
     system = System(args)
     r = system.poweron(timeout=args.timeout)
-    print_json(r)
-    return r['returncode']
+    return print_response(r)
 
 @add_help('Power off system')
 def do_poweroff(args):
     system = System(args)
     r = system.poweroff()
-    print_json(r)
-    return r['returncode']
+    return print_response(r)
 
 @add_help('Update system image')
 @add_arg('image', metavar='IMAGE',
@@ -491,8 +490,7 @@ def do_update(args):
 def do_run(args):
     system = System(args)
     r = system.run(args.command)
-    print_json(r)
-    return r['returncode']
+    return print_response(r)
 
 @add_help('Show system state')
 def do_state(args):
