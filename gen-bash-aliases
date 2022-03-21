@@ -7,7 +7,7 @@ import os
 import yaml
 
 def print_aliases(alias, host, cli):
-    print('alias sol-{}="console -M ozzy -p 3109 -U {}"'.format(alias,host))
+    print('alias sol-{}="console -M ozzy -p 3109 -U {}"'.format(alias, host))
     for cmd in ('reset', 'update', 'poff', 'pon', 'show'):
         print('alias {}-{}="{} ozzy:5000 system-{} {}"'.format(cmd, alias, cli, cmd, host))
 
