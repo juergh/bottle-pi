@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+#
+# Generate a sample SSH config file from bottle-pi.config
+#
+
+import yaml
+
+with open('bottle-pi.config') as fh:
+    configs = yaml.load(fh, Loader=yaml.SafeLoader)
+
+for serial, system in configs['systems'].items():
+    hostname = system['hostname']
+    ram = system.get('features').get('ram').lower()
+
+    print("""Host {} {}
+  HostName {}
+  User ubuntu
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  ConnectTimeout 1
+""".format(hostname.replace('-rev', '-{}-rev'.format(ram)), hostname, hostname))

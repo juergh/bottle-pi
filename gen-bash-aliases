@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+#
+# Generate a sample bash aliases file from bottle-pi.config
+#
+
+import os
+import yaml
+
+def print_aliases(alias, host, cli):
+    print('alias sol-{}="console -M ozzy -p 3109 -U {}"'.format(alias,host))
+    for cmd in ('reset', 'update', 'poff', 'pon', 'show'):
+        print('alias {}-{}="{} ozzy:5000 system-{} {}"'.format(cmd, alias, cli, cmd, host))
+
+cli = os.path.abspath('bottle-pi-cli')
+
+with open('bottle-pi.config') as fh:
+    configs = yaml.load(fh, Loader=yaml.SafeLoader)
+
+slots = {}
+systems = []
+for serial, system in configs['systems'].items():
+    hostname = system['hostname']
+    ram = system.get('features').get('ram').lower()
+    slot = system['slot']
+
+    print_aliases(hostname, hostname, cli)
+    print_aliases(hostname.replace('-rev', '-{}-rev'.format(ram)), hostname, cli)
+    if not slots.get(slot, False):
+        slots[slot] = True
+        print_aliases('rpi-slot{}'.format(slot), hostname, cli)
+    print()

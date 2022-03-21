@@ -1,0 +1,8 @@
+#!/bin/bash -eu
+#
+# Generate config files from bottle-pi.config
+#
+
+./gen-conserver-cf > conserver.cf
+./gen-bash-aliases > "${HOME}"/.bottle-pi.aliases
+./gen-ssh-config > "${HOME}"/.ssh/bottle-pi.config
