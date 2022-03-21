@@ -48,23 +48,32 @@ def do_image_get(args):
             sys.stdout.buffer.write(chunk)
 
 @add_help('List systems')
-@add_arg('-d', '--details', action='store_true', help='Show system details')
+@add_arg('-d', '--details', choices=['all', 'power-state'],
+         default='none', help='Show system details')
 def do_system_list(args):
     r = requests.get(args.host + '/Systems')
     r.raise_for_status()
-    if args.details:
+    if args.details == 'none':
+        print_json(r.json())
+    else:
         for member in r.json()['Members']:
             args.system = member['@odata.id'].split('/')[-1]
             do_system_show(args)
-    else:
-        print_json(r.json())
 
 @add_help('Show system details')
 @add_arg('system', help='System name')
+@add_arg('-d', '--details', choices=['all', 'power-state'],
+         default='all', help='Details to display')
 def do_system_show(args):
+    keys = {
+        'power-state': ('HostName', 'PowerState', 'SerialNumber', 'Slot'),
+    }
     r = requests.get(args.host + '/Systems/' + args.system)
     r.raise_for_status()
-    print_json(r.json())
+    if args.details == 'all':
+        print_json(r.json())
+    else:
+        print_json({key: r.json().get(key) for key in keys[args.details]})
 
 @add_help('Reset system')
 @add_arg('system', help='System name')
