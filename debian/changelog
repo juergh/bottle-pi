@@ -1,3 +1,19 @@
+bottle-pi (0.0.16) unstable; urgency=medium
+
+  * cli: Show 'power-state' details
+  * Remove bottle-pi-bridge
+  * Add 'Slot' information to the system details
+  * config: Add Pi 4B 2GB model
+  * gen-conserver-cf: Handle multiple aliases
+  * config: Add Pi Zero 2 model
+  * pi-cli: Add -o, --stdout and -e, --stderr arguments for run
+    subcommand
+  * pi-cli: Clarify the helper functions use
+  * pi-cli: Introduce print_response() helper
+  * target-pi-cli: Rename to pi-cli
+
+ -- Juerg Haefliger <juergh@canonical.com>  Mon, 21 Mar 2022 13:22:07 +0100
+
 bottle-pi (0.0.15) unstable; urgency=medium
 
   * packaging: Drop bottle-pi-bridge systemd service
