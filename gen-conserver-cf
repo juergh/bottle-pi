@@ -1,31 +1,29 @@
-#!/bin/bash -eu
+#!/usr/bin/env python3
 #
 # Genereate a sample conserver config file from bottle-pi.config
 #
+import yaml
 
-declare -a slots=()
-declare -A aliases=()
-declare -A device=()
+with open('bottle-pi.config') as fh:
+    configs = yaml.load(fh, Loader=yaml.SafeLoader)
 
-while read -r x1 x2 x3 rest ; do
-	if [ "${x1}${x2}" = "#Slot" ] ; then
-		slot=${x3}
-		slots+=("${slot}")
-	fi
-	if [ "${x1}" = "hostname:" ] ; then
-		if [ -z "${aliases[${slot}]:-}" ] ; then
-			aliases[${slot}]=${x2}
-		else
-			aliases[${slot}]=${aliases[${slot}]},${x2}
-		fi
-	fi
-	if [ "${x1}" = "serialport:" ] ; then
-		device[${slot}]=${x2}
-	fi
-done < <(cat bottle-pi.config)
+slots = {}
+for serial, system in configs['systems'].items():
+    hostname = system['hostname']
+    ram = system['features']['ram']
+    slot = system['slot']
+    serialport = system['serialport']
 
-cat <<EOF
-# Conserver configuration file
+    alias = hostname.replace('-rev', '-{}-rev'.format(ram.lower()))
+    if slot in slots:
+        slots[slot]['aliases'].extend([hostname, alias])
+    else:
+        slots[slot] = {
+            'aliases': [hostname, alias],
+            'device': serialport,
+        }
+
+print("""# Conserver configuration file
 
 default * {
 	master localhost;
@@ -36,21 +34,15 @@ default * {
 	baud 115200;
 	parity none;
 }
-EOF
+""")
 
-while IFS= read -r slot ; do
-	cat <<EOF
+for slot in slots:
+    print("""console slot-{} {{
+	aliases {};
+	device {};
+}}
+""".format(slot, ','.join(slots[slot]['aliases']), slots[slot]['device']))
 
-console slot-${slot} {
-	aliases ${aliases[${slot}]};
-	device ${device[${slot}]};
-}
-EOF
-done < <(printf "%s\n" "${slots[@]}" | sort -nu)
-
-cat <<EOF
-
-access * {
+print("""access * {
 	trusted localhost,gollum,smeagol;
-}
-EOF
+}""")
