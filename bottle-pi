@@ -278,6 +278,7 @@ def get_Systems_name(name):
         '@odata.id': '/redfish/v1/Systems/' + name,
         'Id': name,
         'SerialNumber': system['serialnumber'],
+        'Slot': system['slot'],
         'Model': system['model'],
         'Features': [
             {
