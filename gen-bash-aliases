@@ -7,9 +7,16 @@ import os
 import yaml
 
 def print_aliases(alias, host, cli):
+    cmds = {
+        'reset': 'system-reset',
+        'update': 'system-update',
+        'pon': 'system-poweron',
+        'poff': 'system-poweroff',
+        'show': 'system-show',
+    }
     print('alias sol-{}="console -M ozzy -p 3109 -U {}"'.format(alias, host))
-    for cmd in ('reset', 'update', 'poff', 'pon', 'show'):
-        print('alias {}-{}="{} ozzy:5000 system-{} {}"'.format(cmd, alias, cli, cmd, host))
+    for cmd in cmds:
+        print('alias {}-{}="{} ozzy:5000 {} {}"'.format(cmd, alias, cli, cmds[cmd], host))
 
 cli = os.path.abspath('bottle-pi-cli')
 
