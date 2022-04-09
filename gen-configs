@@ -4,5 +4,6 @@
 #
 
 ./gen-conserver-cf > conserver.cf
+./gen-ser2net-yaml > ser2net.yaml
 ./gen-bash-aliases > "${HOME}"/.bottle-pi.aliases
 ./gen-ssh-config > "${HOME}"/.ssh/bottle-pi.config

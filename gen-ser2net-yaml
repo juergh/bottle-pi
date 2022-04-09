@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+#
+# Generate a sample ser2net config yaml from bottle-pi.config
+#
+import yaml
+
+with open('bottle-pi.config') as fh:
+    configs = yaml.load(fh, Loader=yaml.SafeLoader)
+
+print("""%YAML 1.1
+---
+# ser2net configuration file
+
+define: &banner \\r\\nser2port port \\p device \\d\\r\\n\\r\\n
+""")
+
+slots = {}
+for _, system in configs['systems'].items():
+    slot = system['slot']
+    serialport = system['serialport']
+    tcpport = system['tcpport']
+
+    if slot in slots:
+        continue
+    slots[slot] = 1
+
+    print("""connection: &slot{}
+    accepter: tcp,{}
+    enable: on
+    options:
+        banner: *banner
+        kickolduser: true
+        telnet-brk-on-sync: true
+    connector: serialdev,{},115200n81,local
+""".format(slot, tcpport, serialport))
