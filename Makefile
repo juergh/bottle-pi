@@ -1,6 +1,8 @@
 all:
 
 deb:
+	git clean -dxf
+	./gen-ser2net-yaml > ser2net.yaml.bottle-pi
 	dpkg-buildpackage -us -uc
 
 release:
