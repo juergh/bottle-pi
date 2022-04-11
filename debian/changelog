@@ -1,3 +1,10 @@
+bottle-pi (0.0.18) unstable; urgency=medium
+
+  * Include a sample ser2net.yaml file in the package
+  * Rename debian files
+
+ -- Juerg Haefliger <juergh@canonical.com>  Mon, 11 Apr 2022 09:57:05 +0200
+
 bottle-pi (0.0.17) unstable; urgency=medium
 
   * Add support for ser2net
