@@ -16,7 +16,8 @@ def print_aliases(alias, host, cli):
     }
     print('alias sol-{}="console -M ozzy -p 3109 -U {}"'.format(alias, host))
     for cmd in cmds:
-        print('alias {}-{}="{} ozzy:5000 {} {}"'.format(cmd, alias, cli, cmds[cmd], host))
+        print('alias {}-{}="{} ozzy:5000 {} {}"'.format(cmd, alias, cli,
+                                                        cmds[cmd], host))
 
 cli = os.path.abspath('bottle-pi-cli')
 
@@ -27,12 +28,20 @@ slots = {}
 systems = []
 for serial, system in configs['systems'].items():
     hostname = system['hostname']
-    ram = system.get('features').get('ram').lower()
     slot = system['slot']
 
+    # Hostname alias
     print_aliases(hostname, hostname, cli)
-    print_aliases(hostname.replace('-rev', '-{}-rev'.format(ram)), hostname, cli)
+
+    if hostname.split('-')[1] in ('4b', 'cm4'):
+        # RAM alias for devices with different RAM configurations
+        ram = system.get('features').get('ram').lower()
+        print_aliases(hostname.replace('-rev', '-{}-rev'.format(ram)),
+                      hostname, cli)
+
     if not slots.get(slot, False):
+        # Slot alias
         slots[slot] = True
         print_aliases('rpi-slot{}'.format(slot), hostname, cli)
+
     print()
