@@ -33,7 +33,7 @@ for serial, system in configs['systems'].items():
     # Hostname alias
     print_aliases(hostname, hostname, cli)
 
-    if hostname.split('-')[1] in ('4b', 'cm4'):
+    if hostname.split('-')[1] in ('4b', 'cm4', '5b'):
         # RAM alias for devices with different RAM configurations
         ram = system.get('features').get('ram').lower()
         print_aliases(hostname.replace('-rev', '-{}-rev'.format(ram)),

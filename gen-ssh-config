@@ -12,7 +12,7 @@ for serial, system in configs['systems'].items():
     hostname = system['hostname']
     hosts = [hostname]
 
-    if hostname.split('-')[1] in ('4b', 'cm4'):
+    if hostname.split('-')[1] in ('4b', 'cm4', '5b'):
         # RAM alias for devices with different RAM configurations
         ram = system.get('features').get('ram').lower()
         hosts.append(hostname.replace('-rev', '-{}-rev'.format(ram)))
