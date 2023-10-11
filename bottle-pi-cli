@@ -12,177 +12,193 @@ import requests
 # -----------------------------------------------------------------------------
 # Helper functions
 
+
 def _dec(name, *args, **kwargs):
     def _decorator(func):
         # Because of the sematics of decorator composition if we just append
         # to the options list positional options will appear to be backwards.
         func.__dict__.setdefault(name, []).insert(0, (args, kwargs))
         return func
+
     return _decorator
 
 
 def add_help(*args, **kwargs):
-    return _dec('help', *args, **kwargs)
+    return _dec("help", *args, **kwargs)
+
 
 def add_arg(*args, **kwargs):
-    return _dec('arg', *args, **kwargs)
+    return _dec("arg", *args, **kwargs)
+
 
 def print_json(data):
     print(json.dumps(data, indent=4, sort_keys=True))
 
+
 # -----------------------------------------------------------------------------
 # Subcommands
 
-@add_help('List images')
+
+@add_help("List images")
 def do_image_list(args):
-    r = requests.get(args.host + '/Images')
+    r = requests.get(args.host + "/Images")
     r.raise_for_status()
     print_json(r.json())
 
-@add_help('Get image')
-@add_arg('image', help='Image name')
+
+@add_help("Get image")
+@add_arg("image", help="Image name")
 def do_image_get(args):
-    with requests.get(args.host + '/Images/' + args.image) as r:
+    with requests.get(args.host + "/Images/" + args.image) as r:
         r.raise_for_status()
         for chunk in r.iter_content(chunk_size=1024):
             sys.stdout.buffer.write(chunk)
 
-@add_help('List systems')
-@add_arg('-d', '--details', choices=['all', 'power-state'],
-         default='none', help='Show system details')
+
+@add_help("List systems")
+@add_arg("-d", "--details", choices=["all", "power-state"],
+         default="none", help="Show system details")
 def do_system_list(args):
-    r = requests.get(args.host + '/Systems')
+    r = requests.get(args.host + "/Systems")
     r.raise_for_status()
-    if args.details == 'none':
+    if args.details == "none":
         print_json(r.json())
     else:
-        for member in r.json()['Members']:
-            args.system = member['@odata.id'].split('/')[-1]
+        for member in r.json()["Members"]:
+            args.system = member["@odata.id"].split("/")[-1]
             do_system_show(args)
 
-@add_help('Show system details')
-@add_arg('system', help='System name')
-@add_arg('-d', '--details', choices=['all', 'power-state'],
-         default='all', help='Details to display')
+
+@add_help("Show system details")
+@add_arg("system", help="System name")
+@add_arg("-d", "--details", choices=["all", "power-state"],
+         default="all", help="Details to display")
 def do_system_show(args):
     keys = {
-        'power-state': ('HostName', 'PowerState', 'SerialNumber', 'Slot'),
+        "power-state": ("HostName", "PowerState", "SerialNumber", "Slot"),
     }
-    r = requests.get(args.host + '/Systems/' + args.system)
+    r = requests.get(args.host + "/Systems/" + args.system)
     r.raise_for_status()
-    if args.details == 'all':
+    if args.details == "all":
         print_json(r.json())
     else:
         print_json({key: r.json().get(key) for key in keys[args.details]})
 
-@add_help('Reset system')
-@add_arg('system', help='System name')
+
+@add_help("Reset system")
+@add_arg("system", help="System name")
 def do_system_reset(args):
     # Reset the system
     data = {
-        'ResetType': 'ForceRestart',
+        "ResetType": "ForceRestart",
     }
-    r = requests.post(args.host + '/Systems/' + args.system +
-                      '/Actions/ComputerSystem.Reset', json=data)
+    r = requests.post(args.host + "/Systems/" + args.system +
+                      "/Actions/ComputerSystem.Reset", json=data)
     r.raise_for_status()
 
-@add_help('Poweroff system')
-@add_arg('system', help='System name')
+
+@add_help("Poweroff system")
+@add_arg("system", help="System name")
 def do_system_poweroff(args):
     # Poweroff the system
     data = {
-        'ResetType': 'ForceOff',
+        "ResetType": "ForceOff",
     }
-    r = requests.post(args.host + '/Systems/' + args.system +
-                      '/Actions/ComputerSystem.Reset', json=data)
+    r = requests.post(args.host + "/Systems/" + args.system +
+                      "/Actions/ComputerSystem.Reset", json=data)
     r.raise_for_status()
 
-@add_help('Poweron system')
-@add_arg('system', help='System name')
+
+@add_help("Poweron system")
+@add_arg("system", help="System name")
 def do_system_poweron(args):
     # Poweron the system
     data = {
-        'ResetType': 'On',
+        "ResetType": "On",
     }
-    r = requests.post(args.host + '/Systems/' + args.system +
-                      '/Actions/ComputerSystem.Reset', json=data)
+    r = requests.post(args.host + "/Systems/" + args.system +
+                      "/Actions/ComputerSystem.Reset", json=data)
     r.raise_for_status()
 
-@add_help('Update system')
-@add_arg('system', help='System name')
-@add_arg('image', help='Image name', nargs='?')
+
+@add_help("Update system")
+@add_arg("system", help="System name")
+@add_arg("image", help="Image name", nargs="?")
 def do_system_update(args):
     data = None
     if args.image:
         data = {
-            'Image': '/redfish/v1/Images/' + args.image,
+            "Image": "/redfish/v1/Images/" + args.image,
         }
 
     # Update the system
-    r = requests.post(args.host + '/Systems/' + args.system +
-                      '/Actions/ComputerSystem.Update', json=data)
+    r = requests.post(args.host + "/Systems/" + args.system +
+                      "/Actions/ComputerSystem.Update", json=data)
     r.raise_for_status()
 
-@add_help('Show system update details')
-@add_arg('system', help='System name')
+
+@add_help("Show system update details")
+@add_arg("system", help="System name")
 def do_system_update_show(args):
-    r = requests.get(args.host + '/Systems/' + args.system +
-                     '/Actions/ComputerSystem.Update')
+    r = requests.get(args.host + "/Systems/" + args.system +
+                     "/Actions/ComputerSystem.Update")
     r.raise_for_status()
     print_json(r.json())
 
 
-@add_help('Clear system update details')
-@add_arg('system', help='System name')
+@add_help("Clear system update details")
+@add_arg("system", help="System name")
 def do_system_update_clear(args):
-    r = requests.delete(args.host + '/Systems/' + args.system +
-                        '/Actions/ComputerSystem.Update')
+    r = requests.delete(args.host + "/Systems/" + args.system +
+                        "/Actions/ComputerSystem.Update")
     r.raise_for_status()
 
-@add_help('Set system gpio')
-@add_arg('system', help='System name')
-@add_arg('gpio_state', help='Gpio state',
-         choices=['power=0', 'power=1', 'gpio4=0', 'gpio4=1'])
+
+@add_help("Set system gpio")
+@add_arg("system", help="System name")
+@add_arg("gpio_state", help="Gpio state",
+         choices=["power=0", "power=1", "gpio4=0", "gpio4=1"])
 def do_system_set_gpio(args):
     # Set system gpio
     data = {
-        'GpioState': args.gpio_state,
+        "GpioState": args.gpio_state,
     }
-    r = requests.post(args.host + '/Systems/' + args.system +
-                      '/Actions/ComputerSystem.SetGpio', json=data)
+    r = requests.post(args.host + "/Systems/" + args.system +
+                      "/Actions/ComputerSystem.SetGpio", json=data)
     r.raise_for_status()
+
 
 # -----------------------------------------------------------------------------
 # Main entry point
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('host', metavar='host[:port]',
-                        help='Remote bottle-pi host (and port)')
+    parser.add_argument("host", metavar="host[:port]",
+                        help="Remote bottle-pi host (and port)")
 
-    # Add subparsers for the subcommands and walk through the 'do_' functions
-    subparsers = parser.add_subparsers(dest='subcommand', title='subcommands',
+    # Add subparsers for the subcommands and walk through the "do_" functions
+    subparsers = parser.add_subparsers(dest="subcommand", title="subcommands",
                                        required=True)
     module = sys.modules[__name__]
-    for attr in (a for a in dir(module) if a.startswith('do_')):
-        cmd_name = attr[3:].replace('_', '-')
+    for attr in (a for a in dir(module) if a.startswith("do_")):
+        cmd_name = attr[3:].replace("_", "-")
         cmd_cb = getattr(module, attr)
-        cmd_desc = cmd_cb.__doc__ or ''
-        cmd_help = getattr(cmd_cb, 'help', [])
-        cmd_args = getattr(cmd_cb, 'arg', [])
+        cmd_desc = cmd_cb.__doc__ or ""
+        cmd_help = getattr(cmd_cb, "help", [])
+        cmd_args = getattr(cmd_cb, "arg", [])
 
         sparser = subparsers.add_parser(cmd_name, help=cmd_help[0][0][0],
                                         description=cmd_desc, add_help=False)
-        sparser.add_argument('-h', '--help', action='help')
+        sparser.add_argument("-h", "--help", action="help")
         for (args, kwargs) in cmd_args:
             sparser.add_argument(*args, **kwargs)
         sparser.set_defaults(func=cmd_cb)
 
     # Parse the arguments
     args = parser.parse_args()
-    if not args.host.startswith('http://'):
-        args.host = 'http://' + args.host
-    args.host = args.host.rstrip('/') + '/redfish/v1'
+    if not args.host.startswith("http://"):
+        args.host = "http://" + args.host
+    args.host = args.host.rstrip("/") + "/redfish/v1"
 
     # Call the subcommand
     args.func(args)
