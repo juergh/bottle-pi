@@ -16,16 +16,17 @@ import requests
 import scp
 
 SSH_PORT = 22
-SSH_USER = 'ubuntu'
-SSH_PASS = 'ubuntu'
+SSH_USER = "ubuntu"
+SSH_PASS = "ubuntu"
 
-E_OK = ''
-E_UNKNOWN = 'Unknown_Failure'
-E_SSH_EXEC = 'Ssh_Command_Execution_Failure'
-E_ROOT_ACCESS = 'Root_Access_Failure'
-E_ACCESS = 'Access_Failure'
-E_TIMEOUT = 'Operation_Timeout_Failure'
-E_SCP_PUT = 'Scp_Put_Failure'
+E_OK = ""
+E_UNKNOWN = "Unknown_Failure"
+E_SSH_EXEC = "Ssh_Command_Execution_Failure"
+E_ROOT_ACCESS = "Root_Access_Failure"
+E_ACCESS = "Access_Failure"
+E_TIMEOUT = "Operation_Timeout_Failure"
+E_SCP_PUT = "Scp_Put_Failure"
+
 
 def print_response(resp, stdout=False, stderr=False):
     """
@@ -33,41 +34,43 @@ def print_response(resp, stdout=False, stderr=False):
     """
     if not stdout and not stderr:
         print(json.dumps(resp, indent=4, sort_keys=True))
-        return resp['returncode']
+        return resp["returncode"]
 
     if stdout:
-        stdout = resp['response'].get('stdout')
+        stdout = resp["response"].get("stdout")
         if stdout:
-            print('\n'.join(stdout))
+            print("\n".join(stdout))
 
     if stderr:
-        stderr = resp['response'].get('stderr')
+        stderr = resp["response"].get("stderr")
         if stderr:
-            print('\n'.join(stderr))
+            print("\n".join(stderr))
 
-    return resp['response'].get('returncode', resp['returncode'])
+    return resp["response"].get("returncode", resp["returncode"])
 
-def response(error, message='', response=''):
+
+def response(error, message="", response=""):
     """
     Construct a response
     """
     if error == E_OK:
         resp = {
-            'returncode': 0,
-            'response': response,
+            "returncode": 0,
+            "response": response,
         }
     else:
         resp = {
-            'returncode': 1,
-            'response': response,
-            'error': {
-                'code': error,
-                'message': message,
+            "returncode": 1,
+            "response": response,
+            "error": {
+                "code": error,
+                "message": message,
             },
         }
         log.warning(resp)
     log.debug(resp)
     return resp
+
 
 def is_port_open(addr, port):
     """
@@ -79,16 +82,18 @@ def is_port_open(addr, port):
         s.settimeout(0.5)
         s.connect(addr)
         s.close()
-        log.debug('%s is open', addr)
+        log.debug("%s is open", addr)
         return True
     except (ConnectionRefusedError, socket.timeout, OSError):
-        log.debug('%s is NOT open', addr)
+        log.debug("%s is NOT open", addr)
         return False
 
-class SSHClient():
+
+class SSHClient:
     """
-    A wrapper around paramiko's SSHClient class
+    A wrapper around paramiko"s SSHClient class
     """
+
     def __init__(self, addr, port=22, username=None, password=None, timeout=2):
         self.client = paramiko.SSHClient()
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -106,9 +111,9 @@ class SSHClient():
     def run(self, cmd):
         stdin, stdout, stderr = self.client.exec_command(cmd)
         resp = {}
-        resp['stdout'] = [line.strip('\n') for line in stdout]
-        resp['stderr'] = [line.strip('\n') for line in stderr]
-        resp['returncode'] = stdout.channel.recv_exit_status()
+        resp["stdout"] = [line.strip("\n") for line in stdout]
+        resp["stderr"] = [line.strip("\n") for line in stderr]
+        resp["returncode"] = stdout.channel.recv_exit_status()
         stdin.close()
         stdout.close()
         stderr.close()
@@ -117,15 +122,17 @@ class SSHClient():
     def put(self, source, dest, recursive=False):
         try:
             self.scp_client.put(source, remote_path=dest, recursive=recursive)
-            resp = {'returncode': 0}
+            resp = {"returncode": 0}
         except scp.SCPException:
-            resp = {'returncode': 1}
+            resp = {"returncode": 1}
         return resp
 
-class System():
+
+class System:
     """
     Raspberry Pi system class
     """
+
     def __init__(self, args):
         self._host = args.host
         self._system = args.system
@@ -138,7 +145,7 @@ class System():
         """
         Refresh all system information
         """
-        log.info('Refresh all system information ')
+        log.info("Refresh all system information ")
         self.system = {}
         self.refresh_bottle_info()
         self.refresh_ip_addrs()
@@ -149,9 +156,9 @@ class System():
         """
         Get system information from bottle-pi server
         """
-        log.info('Refresh information from bottle-pi server')
+        log.info("Refresh information from bottle-pi server")
 
-        r = requests.get(self._host + '/Systems/' + self._system)
+        r = requests.get(self._host + "/Systems/" + self._system)
         r.raise_for_status()
         self.system.update(r.json())
 
@@ -159,83 +166,83 @@ class System():
         """
         Get IP addresses
         """
-        log.info('Refresh IP addresses')
+        log.info("Refresh IP addresses")
 
-        self.system['Addresses'] = []
+        self.system["Addresses"] = []
         try:
-            r = socket.gethostbyname_ex(self.system['HostName'])
+            r = socket.gethostbyname_ex(self.system["HostName"])
             # To speed things up, go through the list in reverse order and stop
             # at the first valid address
             r[2].reverse()
             for addr in r[2]:
                 if is_port_open(addr, SSH_PORT):
-                    self.system['Addresses'].append(addr)
+                    self.system["Addresses"].append(addr)
                     return True
         except socket.gaierror:
             pass
-        log.warning('No valid IP address found')
+        log.warning("No valid IP address found")
         return False
 
     def refresh_system_state(self):
         """
         Get system state
         """
-        log.info('Refresh system state')
+        log.info("Refresh system state")
 
-        if self.system['PowerState'] == 'Off':
-            state = 'Down'
-        elif not self.system['Addresses']:
-            state = 'NoAddress'
+        if self.system["PowerState"] == "Off":
+            state = "Down"
+        elif not self.system["Addresses"]:
+            state = "NoAddress"
         else:
             try:
                 # Establish an SSH connection to the system
-                self.ssh_client = SSHClient(self.system['Addresses'][0],
+                self.ssh_client = SSHClient(self.system["Addresses"][0],
                                             port=SSH_PORT, username=SSH_USER,
                                             password=SSH_PASS)
                 # Check if we have sudo permissions
-                r = self.ssh_client.run('sudo whoami')
-                if r['returncode']:
-                    state = 'UserAccess'
+                r = self.ssh_client.run("sudo whoami")
+                if r["returncode"]:
+                    state = "UserAccess"
                 else:
-                    state = 'RootAccess'
+                    state = "RootAccess"
             except paramiko.ssh_exception.NoValidConnectionsError:
-                state = 'NoValidConnectionError'
+                state = "NoValidConnectionError"
             except socket.timeout:
-                state = 'TimeOutError'
+                state = "TimeOutError"
             except ConnectionResetError:
-                state = 'ConnectionResetError'
+                state = "ConnectionResetError"
             except paramiko.ssh_exception.AuthenticationException:
-                state = 'AuthenticationError'
+                state = "AuthenticationError"
             except paramiko.ssh_exception.SSHException:
-                state = 'SshError'
-        self.system['SystemState'] = state
+                state = "SshError"
+        self.system["SystemState"] = state
 
     def refresh_os_info(self):
         """
         Get OS information
         """
-        log.info('Refresh OS information')
+        log.info("Refresh OS information")
 
-        if self.system['SystemState'] not in ('RootAccess', 'UserAccess'):
-            info = 'Unavailable'
+        if self.system["SystemState"] not in ("RootAccess", "UserAccess"):
+            info = "Unavailable"
         else:
             info = {}
-            r = self.run('uname -a')
-            info['Kernel'] = r['response']['stdout'][0]
-            r = self.run('lsb_release -a')
-            info['LsbRelease'] = r['response']['stdout']
-        self.system['OsInformation'] = info
+            r = self.run("uname -a")
+            info["Kernel"] = r["response"]["stdout"][0]
+            r = self.run("lsb_release -a")
+            info["LsbRelease"] = r["response"]["stdout"]
+        self.system["OsInformation"] = info
 
     def is_alive(self):
         """
         Check if the system is alive
         """
-        if self.system['Addresses']:
-            return is_port_open(self.system['Addresses'][0], SSH_PORT)
+        if self.system["Addresses"]:
+            return is_port_open(self.system["Addresses"][0], SSH_PORT)
 
-        # We don't have an address cached, so refresh the system info
+        # We don"t have an address cached, so refresh the system info
         self.refresh_system()
-        if self.system['Addresses']:
+        if self.system["Addresses"]:
             return True
         return False
 
@@ -243,17 +250,17 @@ class System():
         """
         Run a command on the system
         """
-        log.info('Run command: %s', cmd)
+        log.info("Run command: %s", cmd)
 
-        state = self.system['SystemState']
-        if state not in ('RootAccess', 'UserAccess'):
+        state = self.system["SystemState"]
+        if state not in ("RootAccess", "UserAccess"):
             return response(E_ACCESS,
-                            message='Invalid system state: {}'.format(state))
+                            message="Invalid system state: {}".format(state))
 
         r = self.ssh_client.run(cmd)
-        if r['returncode']:
+        if r["returncode"]:
             return response(E_SSH_EXEC,
-                            message='Failed to run command: {}'.format(cmd),
+                            message="Failed to run command: {}".format(cmd),
                             response=r)
 
         return response(E_OK, response=r)
@@ -262,17 +269,17 @@ class System():
         """
         Put (upload) files to the system
         """
-        log.info('Put %s to %s (recursive=%s)', source, dest, recursive)
+        log.info("Put %s to %s (recursive=%s)", source, dest, recursive)
 
-        state = self.system['SystemState']
-        if state not in ('RootAccess', 'UserAccess'):
+        state = self.system["SystemState"]
+        if state not in ("RootAccess", "UserAccess"):
             return response(E_ACCESS,
-                            message='Invalid system state: {}'.format(state))
+                            message="Invalid system state: {}".format(state))
 
         r = self.ssh_client.put(source, dest, recursive=recursive)
-        if r['returncode']:
+        if r["returncode"]:
             return response(E_SCP_PUT,
-                            message='Failed to put {} to {}'.format(source,
+                            message="Failed to put {} to {}".format(source,
                                                                     dest),
                             response=r)
 
@@ -282,35 +289,35 @@ class System():
         """
         Wait for the system to go down
         """
-        log.info('Wait for system to go down (timeout=%d)', timeout)
+        log.info("Wait for system to go down (timeout=%d)", timeout)
 
         timeout = int(time.time() + timeout)
         while int(time.time()) < timeout:
             time.sleep(interval)
             if not self.is_alive():
-                log.info('System is down')
+                log.info("System is down")
                 return response(E_OK)
 
-        log.info('Timed out waiting for system to go down')
+        log.info("Timed out waiting for system to go down")
         return response(E_TIMEOUT,
-                        message='Timed out waiting for system to go down')
+                        message="Timed out waiting for system to go down")
 
     def wait_up(self, timeout, interval=5):
         """
         Wait for the system to come up
         """
-        log.info('Wait for system to come up (timeout=%d)', timeout)
+        log.info("Wait for system to come up (timeout=%d)", timeout)
 
         timeout = int(time.time() + timeout)
         while int(time.time()) < timeout:
             time.sleep(interval)
             if self.is_alive():
-                log.info('System is up')
+                log.info("System is up")
                 return response(E_OK)
 
-        log.info('Timed out waiting for system to come up')
+        log.info("Timed out waiting for system to come up")
         return response(E_TIMEOUT,
-                        message='Timed out waiting for system to come up')
+                        message="Timed out waiting for system to come up")
 
     def info(self):
         """
@@ -322,17 +329,17 @@ class System():
         """
         Power the system on
         """
-        log.info('Power on system')
+        log.info("Power on system")
 
-        data = {'ResetType': 'On'}
-        r = requests.post(self._host + '/Systems/' + self._system +
-                          '/Actions/ComputerSystem.Reset', json=data)
+        data = {"ResetType": "On"}
+        r = requests.post(self._host + "/Systems/" + self._system +
+                          "/Actions/ComputerSystem.Reset", json=data)
         r.raise_for_status()
 
         if timeout > 0:
             # Wait for the system to come up
             r = self.wait_up(timeout)
-            if r['returncode']:
+            if r["returncode"]:
                 return r
 
         return response(E_OK)
@@ -341,11 +348,11 @@ class System():
         """
         Power the system off
         """
-        log.info('Power off system')
+        log.info("Power off system")
 
-        data = {'ResetType': 'ForceOff'}
-        r = requests.post(self._host + '/Systems/' + self._system +
-                          '/Actions/ComputerSystem.Reset', json=data)
+        data = {"ResetType": "ForceOff"}
+        r = requests.post(self._host + "/Systems/" + self._system +
+                          "/Actions/ComputerSystem.Reset", json=data)
         r.raise_for_status()
 
         return response(E_OK)
@@ -354,29 +361,29 @@ class System():
         """
         Reboot the system
         """
-        log.info('Reboot system (timeout=%d)', timeout)
+        log.info("Reboot system (timeout=%d)", timeout)
 
-        state = self.system['SystemState']
-        if state != 'RootAccess':
+        state = self.system["SystemState"]
+        if state != "RootAccess":
             return response(E_ROOT_ACCESS,
-                            message='Invalid system state: {}'.format(state))
+                            message="Invalid system state: {}".format(state))
 
         # Reboot the system
-        r = self.run('( sudo reboot >/dev/null 2>&1 & ) &')
-        if r['returncode']:
+        r = self.run("( sudo reboot >/dev/null 2>&1 & ) &")
+        if r["returncode"]:
             return r
 
         if timeout > 0:
             now = time.time()
             # Wait for the system to go down
             r = self.wait_down(timeout)
-            if r['returncode']:
+            if r["returncode"]:
                 return r
 
             timeout = timeout + now - time.time()
             # Wait for the system to come up
             r = self.wait_up(timeout)
-            if r['returncode']:
+            if r["returncode"]:
                 return r
 
         return response(E_OK)
@@ -385,22 +392,22 @@ class System():
         """
         Shutdown the system
         """
-        log.info('Shut down system (timeout=%d)', timeout)
+        log.info("Shut down system (timeout=%d)", timeout)
 
-        state = self.system['SystemState']
-        if state != 'RootAccess':
+        state = self.system["SystemState"]
+        if state != "RootAccess":
             return response(E_ROOT_ACCESS,
-                            message='Invalid system state: {}'.format(state))
+                            message="Invalid system state: {}".format(state))
 
         # Poweroff the system
-        r = self.run('( sudo poweroff >/dev/null 2>&1 & ) &')
-        if r['returncode']:
+        r = self.run("( sudo poweroff >/dev/null 2>&1 & ) &")
+        if r["returncode"]:
             return r
 
         if timeout > 0:
             # Wait for the system to go down
             r = self.wait_down(timeout)
-            if r['returncode']:
+            if r["returncode"]:
                 return r
 
         return response(E_OK)
@@ -409,24 +416,25 @@ class System():
         """
         Update the system image
         """
-        if not image.startswith('/redfish/v1/Images/'):
-            image = '/redfish/v1/Images/' + image
+        if not image.startswith("/redfish/v1/Images/"):
+            image = "/redfish/v1/Images/" + image
 
-        log.info('Update system image: %s (timeout=%d)', image, timeout)
+        log.info("Update system image: %s (timeout=%d)", image, timeout)
 
         # Update the image
-        data = {'Image': image}
-        r = requests.post(self._host + '/Systems/' + self._system +
-                          '/Actions/ComputerSystem.Update', json=data)
+        data = {"Image": image}
+        r = requests.post(self._host + "/Systems/" + self._system +
+                          "/Actions/ComputerSystem.Update", json=data)
         r.raise_for_status()
 
         if timeout > 0:
             # Wait for the system to come up
             r = self.wait_up(timeout)
-            if r['returncode']:
+            if r["returncode"]:
                 return r
 
         return response(E_OK)
+
 
 # -----------------------------------------------------------------------------
 # Subcommand helper functions
@@ -437,152 +445,166 @@ def _dec(name, *args, **kwargs):
         # to the options list positional options will appear to be backwards.
         func.__dict__.setdefault(name, []).insert(0, (args, kwargs))
         return func
+
     return _decorator
 
+
 def add_help(*args, **kwargs):
-    return _dec('help', *args, **kwargs)
+    return _dec("help", *args, **kwargs)
+
 
 def add_arg(*args, **kwargs):
-    return _dec('arg', *args, **kwargs)
+    return _dec("arg", *args, **kwargs)
+
 
 # -----------------------------------------------------------------------------
 # Subcommands
 
-@add_help('Show system information')
+
+@add_help("Show system information")
 def do_info(args):
     system = System(args)
     r = system.info()
     return print_response(r)
 
-@add_help('Reboot system')
-@add_arg('-t', '--timeout', metavar='secs', default=0, type=int,
-         help='Give up waiting for the system to come back up after <secs> ' +
-         'seconds')
+
+@add_help("Reboot system")
+@add_arg("-t", "--timeout", metavar="secs", default=0, type=int,
+         help="Give up waiting for the system to come back up after <secs> " +
+         "seconds")
 def do_reboot(args):
     system = System(args)
     r = system.reboot(timeout=args.timeout)
     return print_response(r)
 
-@add_help('Shut down system')
+
+@add_help("Shut down system")
 def do_shutdown(args):
     system = System(args)
     r = system.shutdown(timeout=10)
-    if r['returncode'] == 0:
+    if r["returncode"] == 0:
         # Give it some additional time to fully shut down
         time.sleep(10)
     r = system.poweroff()
     return print_response(r)
 
-@add_help('Power on system')
-@add_arg('-t', '--timeout', metavar='secs', default=0, type=int,
-         help='Give up waiting for the system to come up after <secs> seconds')
+
+@add_help("Power on system")
+@add_arg("-t", "--timeout", metavar="secs", default=0, type=int,
+         help="Give up waiting for the system to come up after <secs> seconds")
 def do_poweron(args):
     system = System(args)
     r = system.poweron(timeout=args.timeout)
     return print_response(r)
 
-@add_help('Power off system')
+
+@add_help("Power off system")
 def do_poweroff(args):
     system = System(args)
     r = system.poweroff()
     return print_response(r)
 
-@add_help('Update system image')
-@add_arg('image', metavar='IMAGE',
-         help='Name of the image')
-@add_arg('-t', '--timeout', metavar='secs', default=0, type=int,
-         help='Give up waiting for the system to come up after <secs> seconds')
+
+@add_help("Update system image")
+@add_arg("image", metavar="IMAGE",
+         help="Name of the image")
+@add_arg("-t", "--timeout", metavar="secs", default=0, type=int,
+         help="Give up waiting for the system to come up after <secs> seconds")
 def do_update(args):
     do_shutdown(args)
     system = System(args)
     r = system.update(args.image, timeout=args.timeout)
-    return r['returncode']
+    return r["returncode"]
 
-@add_help('Run a remote command')
-@add_arg('-o', '--stdout', action='store_true',
-         help='Print stdout from the remotely executed command')
-@add_arg('-e', '--stderr', action='store_true',
-         help='Print stderr from the remotely executed command')
-@add_arg('command', help='Command to execute')
+
+@add_help("Run a remote command")
+@add_arg("-o", "--stdout", action="store_true",
+         help="Print stdout from the remotely executed command")
+@add_arg("-e", "--stderr", action="store_true",
+         help="Print stderr from the remotely executed command")
+@add_arg("command", help="Command to execute")
 def do_run(args):
     system = System(args)
     r = system.run(args.command)
     return print_response(r, stdout=args.stdout, stderr=args.stderr)
 
-@add_help('Show system state')
+
+@add_help("Show system state")
 def do_state(args):
     system = System(args)
     r = system.info()
-    if r['returncode']:
-        return r['returncode']
-    if r['response']['PowerState'] == 'Off':
-        print('Off')
+    if r["returncode"]:
+        return r["returncode"]
+    if r["response"]["PowerState"] == "Off":
+        print("Off")
     else:
-        print(r['response']['SystemState'])
-    return r['returncode']
+        print(r["response"]["SystemState"])
+    return r["returncode"]
 
-@add_help('Put (upload) files to system')
-@add_arg('source', metavar='SOURCE', nargs='+',
-         help='File or directory to upload')
-@add_arg('dest', metavar='DEST',
-         help='Destination directory (must exist)')
-@add_arg('-r', '--recursive', action='store_true',
-         help='Recursively put entire directories')
+
+@add_help("Put (upload) files to system")
+@add_arg("source", metavar="SOURCE", nargs="+",
+         help="File or directory to upload")
+@add_arg("dest", metavar="DEST",
+         help="Destination directory (must exist)")
+@add_arg("-r", "--recursive", action="store_true",
+         help="Recursively put entire directories")
 def do_put(args):
     system = System(args)
     r = system.put(args.source, args.dest, recursive=args.recursive)
-    return r['returncode']
+    return r["returncode"]
+
 
 # -----------------------------------------------------------------------------
 # Main entry point
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('host', metavar='host[:port]',
-                        help='Remote bottle-pi host (and port)')
-    parser.add_argument('system',
-                        help='Target Raspberry Pi name or serial number')
-    parser.add_argument('-l', '--log-level', choices=('0', '1', '2', '3', '4'),
-                        default='3',
-                        help='Set the logging level (0: critical, 1: error, ' +
-                        '2: warning, 3: info, 4: debug), default: 3')
-    parser.add_argument('-q', '--quiet', action='store_true',
-                        help='Only show criticals and errors (equivalent to ' +
-                        '--log-level=1)')
+    parser.add_argument("host", metavar="host[:port]",
+                        help="Remote bottle-pi host (and port)")
+    parser.add_argument("system",
+                        help="Target Raspberry Pi name or serial number")
+    parser.add_argument("-l", "--log-level", choices=("0", "1", "2", "3", "4"),
+                        default="3",
+                        help="Set the logging level (0: critical, 1: error, " +
+                        "2: warning, 3: info, 4: debug), default: 3")
+    parser.add_argument("-q", "--quiet", action="store_true",
+                        help="Only show criticals and errors (equivalent to " +
+                        "--log-level=1)")
 
-    # Add subparsers for the subcommands and walk through the 'do_' functions
-    subparsers = parser.add_subparsers(dest='subcommand', title='subcommands',
+    # Add subparsers for the subcommands and walk through the "do_" functions
+    subparsers = parser.add_subparsers(dest="subcommand", title="subcommands",
                                        required=True)
     module = sys.modules[__name__]
-    for attr in (a for a in dir(module) if a.startswith('do_')):
-        cmd_name = attr[3:].replace('_', '-')
+    for attr in (a for a in dir(module) if a.startswith("do_")):
+        cmd_name = attr[3:].replace("_", "-")
         cmd_cb = getattr(module, attr)
-        cmd_help = getattr(cmd_cb, 'help')[0][0][0]
-        cmd_args = getattr(cmd_cb, 'arg', [])
+        cmd_help = getattr(cmd_cb, "help")[0][0][0]
+        cmd_args = getattr(cmd_cb, "arg", [])
 
         sparser = subparsers.add_parser(cmd_name, help=cmd_help,
                                         description=cmd_help, add_help=False)
-        sparser.add_argument('-h', '--help', action='help')
+        sparser.add_argument("-h", "--help", action="help")
         for (args, kwargs) in cmd_args:
             sparser.add_argument(*args, **kwargs)
         sparser.set_defaults(call_cmd=cmd_cb, print_help=sparser.print_help)
 
     # Parse the arguments
     args = parser.parse_args()
-    if not args.host.startswith('http://'):
-        args.host = 'http://' + args.host
-    args.host = args.host.rstrip('/') + '/redfish/v1'
+    if not args.host.startswith("http://"):
+        args.host = "http://" + args.host
+    args.host = args.host.rstrip("/") + "/redfish/v1"
 
     # Setup the logger
     levels = {
-        '0': log.CRITICAL,
-        '1': log.ERROR,
-        '2': log.WARNING,
-        '3': log.INFO,
-        '4': log.DEBUG,
+        "0": log.CRITICAL,
+        "1": log.ERROR,
+        "2": log.WARNING,
+        "3": log.INFO,
+        "4": log.DEBUG,
     }
-    log.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S',
+    log.basicConfig(format="%(asctime)s : %(levelname)s : %(message)s",
+                    datefmt="%Y-%m-%d %H:%M:%S",
                     level=log.ERROR if args.quiet else levels[args.log_level])
 
     # Call the subcommand
