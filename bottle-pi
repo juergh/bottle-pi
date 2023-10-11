@@ -15,31 +15,41 @@ import bottle
 try:
     import gpiod
 except ModuleNotFoundError:
-    class gpiod():
+
+    class gpiod:
         LINE_REQ_DIR_OUT = 0
         LINE_REQ_DIR_AS_IS = 1
-        class Line():  # noqa: E301
+
+        class Line:  # noqa: E301
             def __init__(self, chip, num):
                 self.chip = chip
                 self.num = num
+
             def request(self, *_args, **_kwargs):  # noqa: E301
                 pass
+
             def release(self):  # noqa: E301
                 pass
+
             def get_value(self):  # noqa: E301
                 return self.chip.val.get(self.num, -1)
+
             def set_value(self, value):  # noqa: E301
                 self.chip.val[self.num] = value
-        class Chip():  # noqa: E301
+
+        class Chip:  # noqa: E301
             def __init__(self, *_args, **_kwargs):
                 self.val = {}
+
             def get_line(self, num):  # noqa: E301
                 return gpiod.Line(self, num)
 
-class GpioCollection():
+
+class GpioCollection:
     """
     A collection of GPIOs
     """
+
     def __init__(self, chip):
         self.chip = gpiod.Chip(chip)
         self.lines = {}
@@ -48,20 +58,20 @@ class GpioCollection():
         """
         Request a GPIO
         """
-        gpio = system['gpios'][name]
+        gpio = system["gpios"][name]
         if gpio in self.lines:
             # Already requested
             return
 
-        pr_debug(system, 'Gpio.request (name=%s, gpio=%s, type=%s)', name,
+        pr_debug(system, "Gpio.request (name=%s, gpio=%s, type=%s)", name,
                  gpio, req_type)
         line = self.chip.get_line(gpio)
         default_val = None
         if req_type == gpiod.LINE_REQ_DIR_OUT:
-            line.request(consumer='bottle-pi', type=gpiod.LINE_REQ_DIR_AS_IS)
+            line.request(consumer="bottle-pi", type=gpiod.LINE_REQ_DIR_AS_IS)
             default_val = line.get_value()
             line.release()
-        line.request(consumer='bottle-pi', type=req_type,
+        line.request(consumer="bottle-pi", type=req_type,
                      default_val=default_val)
         self.lines[gpio] = line
 
@@ -69,10 +79,10 @@ class GpioCollection():
         """
         Read a GPIO
         """
-        gpio = system['gpios'][name]
+        gpio = system["gpios"][name]
         line = self.lines[gpio]
         value = line.get_value()
-        pr_debug(system, 'Gpio.get_value (name=%s, gpio=%s, value=%s)', name,
+        pr_debug(system, "Gpio.get_value (name=%s, gpio=%s, value=%s)", name,
                  gpio, value)
         return value
 
@@ -80,19 +90,21 @@ class GpioCollection():
         """
         Write a GPIO
         """
-        gpio = system['gpios'][name]
-        pr_debug(system, 'Gpio.set_value (name=%s, gpio=%s, value=%s)', name,
+        gpio = system["gpios"][name]
+        pr_debug(system, "Gpio.set_value (name=%s, gpio=%s, value=%s)", name,
                  gpio, value)
         line = self.lines[gpio]
         line.set_value(value)
 
-class SystemCollection():
+
+class SystemCollection:
     """
     A collection of systems
     """
+
     def __init__(self, configs):
-        self.systems = configs['systems']
-        pr_debug(None, 'Systems: %s', self.systems)
+        self.systems = configs["systems"]
+        pr_debug(None, "Systems: %s", self.systems)
 
     def items(self):
         """
@@ -107,31 +119,33 @@ class SystemCollection():
         if name in self.systems:
             return self.systems[name]
         for _, system in self.systems.items():
-            if system['hostname'] == name:
+            if system["hostname"] == name:
                 return system
         bottle.abort(404)
         return {}
 
-class ImageCollection():
+
+class ImageCollection:
     """
     A collection of images
     """
+
     def __init__(self, configs):
-        self.pathname = configs['images']['pathname']
+        self.pathname = configs["images"]["pathname"]
         self.images = {}
         self.refresh()
-        pr_debug(None, 'Images: %s', self.images)
+        pr_debug(None, "Images: %s", self.images)
 
     def refresh(self):
         """
         Refresh all images
         """
-        pr_debug(None, 'Image.refresh')
+        pr_debug(None, "Image.refresh")
         self.images = {}
         for name in os.listdir(self.pathname):
             filename = os.path.join(self.pathname, name)
             if os.path.isfile(filename):
-                self.images[name] = {'filename': filename}
+                self.images[name] = {"filename": filename}
 
     def keys(self):
         """
@@ -148,23 +162,27 @@ class ImageCollection():
         bottle.abort(404)
         return {}
 
+
 GPIOS = None
 SYSTEMS = None
 IMAGES = None
 
 app = bottle.Bottle()
 
+
 def pr_debug(system, fmt, *args):
-    if system and 'hostname' in system:
-        logging.debug('[%s] ' + fmt, system['hostname'], *args)
+    if system and "hostname" in system:
+        logging.debug("[%s] " + fmt, system["hostname"], *args)
     else:
         logging.debug(fmt, *args)
+
 
 def is_poweron(system):
     """
     Is the system powered on?
     """
-    return GPIOS.get_value(system, 'power') == 1
+    return GPIOS.get_value(system, "power") == 1
+
 
 def poweron(system, update=False):
     """
@@ -175,19 +193,20 @@ def poweron(system, update=False):
 
     if update:
         # Invoke the installer by driving the gpio4 pin low
-        GPIOS.set_value(system, 'gpio4', 0)
+        GPIOS.set_value(system, "gpio4", 0)
     else:
         # Make sure the installer is not invoked
-        GPIOS.set_value(system, 'gpio4', 1)
+        GPIOS.set_value(system, "gpio4", 1)
 
     # Power on
-    GPIOS.set_value(system, 'power', 1)
+    GPIOS.set_value(system, "power", 1)
 
     if update:
         # Keep driving the gpio4 pin low for a bit to give the Pi firmware
         # enough time to sample its state
         time.sleep(20)
-        GPIOS.set_value(system, 'gpio4', 1)
+        GPIOS.set_value(system, "gpio4", 1)
+
 
 def poweroff(system):
     """
@@ -197,10 +216,11 @@ def poweroff(system):
         return
 
     # Power off
-    GPIOS.set_value(system, 'power', 0)
+    GPIOS.set_value(system, "power", 0)
 
     # Set gpio4 to its default value
-    GPIOS.set_value(system, 'gpio4', 1)
+    GPIOS.set_value(system, "gpio4", 1)
+
 
 def reset(system, update=False):
     """
@@ -211,122 +231,132 @@ def reset(system, update=False):
         time.sleep(10)
     poweron(system, update=update)
 
+
 # -----------------------------------------------------------------------------
 # Redfish API routes
 
-@app.get('/redfish')
+
+@app.get("/redfish")
 def get_redfish():
     return {
-        'v1': '/redfish/v1',
+        "v1": "/redfish/v1",
     }
 
-@app.get('/redfish/v1')
-@app.get('/redfish/v1/')  # Redfishtool wants a trailing slash
+
+@app.get("/redfish/v1")
+@app.get("/redfish/v1/")  # Redfishtool wants a trailing slash
 def get_redfish_v1():
     return {
-        '@odata.id': '/redfish/v1',
-        'Images': {
-            '@odata.id': '/redfish/v1/Images',
+        "@odata.id": "/redfish/v1",
+        "Images": {
+            "@odata.id": "/redfish/v1/Images",
         },
-        'Systems': {
-            '@odata.id': '/redfish/v1/Systems',
+        "Systems": {
+            "@odata.id": "/redfish/v1/Systems",
         },
     }
+
 
 # ----------------------------------------
 # Images
 
-@app.get('/redfish/v1/Images')
+
+@app.get("/redfish/v1/Images")
 def get_Images():
     # Refresh the list of available images
     IMAGES.refresh()
     return {
-        '@odata.id': '/redfish/v1/Images',
-        'Members@odata.count': len(IMAGES.keys()),
-        'Members': [
-            {'@odata.id': '/redfish/v1/Images/' + key} for key in IMAGES.keys()
+        "@odata.id": "/redfish/v1/Images",
+        "Members@odata.count": len(IMAGES.keys()),
+        "Members": [
+            {"@odata.id": "/redfish/v1/Images/" + key} for key in IMAGES.keys()
         ],
     }
 
-@app.get('/redfish/v1/Images/<name>')
+
+@app.get("/redfish/v1/Images/<name>")
 def get_Images_name(name):
     image = IMAGES.get(name)
-    return bottle.static_file(image['filename'], root='/')
+    return bottle.static_file(image["filename"], root="/")
+
 
 # ----------------------------------------
 # Systems
 
-@app.get('/redfish/v1/Systems')
+
+@app.get("/redfish/v1/Systems")
 def get_Systems():
     members = []
     for name, system in SYSTEMS.items():
         members.append({
-            '@odata.id': '/redfish/v1/Systems/' + name,
-            'alias': '/redfish/v1/Systems/' + system['hostname'],
+            "@odata.id": "/redfish/v1/Systems/" + name,
+            "alias": "/redfish/v1/Systems/" + system["hostname"],
         })
     return {
-        '@odata.id': '/redfish/v1/Systems',
-        'Members@odata.count': len(members),
-        'Members': members,
+        "@odata.id": "/redfish/v1/Systems",
+        "Members@odata.count": len(members),
+        "Members": members,
     }
 
-@app.get('/redfish/v1/Systems/<name>')
+
+@app.get("/redfish/v1/Systems/<name>")
 def get_Systems_name(name):
     system = SYSTEMS.get(name)
     return {
-        '@odata.id': '/redfish/v1/Systems/' + name,
-        'Id': name,
-        'SerialNumber': system['serialnumber'],
-        'Slot': system['slot'],
-        'Model': system['model'],
-        'Features': [
+        "@odata.id": "/redfish/v1/Systems/" + name,
+        "Id": name,
+        "SerialNumber": system["serialnumber"],
+        "Slot": system["slot"],
+        "Model": system["model"],
+        "Features": [
             {
-                'Name': key,
-                'Value': val
-            } for key, val in (system['features'] or {}).items()
+                "Name": key,
+                "Value": val
+            } for key, val in (system["features"] or {}).items()
         ],
-        'HostName': system['hostname'],
-        'PowerState': 'On' if is_poweron(system) else 'Off',
-        'Gpios': [
+        "HostName": system["hostname"],
+        "PowerState": "On" if is_poweron(system) else "Off",
+        "Gpios": [
             {
-                'Name': key,
-                'Gpio': val,
-                'Value': GPIOS.get_value(system, key)
-            } for key, val in system['gpios'].items()
+                "Name": key,
+                "Gpio": val,
+                "Value": GPIOS.get_value(system, key)
+            } for key, val in system["gpios"].items()
         ],
-        'Actions': {
-            '#ComputerSystem.Reset': {
-                'target': '/redfish/v1/Systems/' + name +
-                          '/Actions/ComputerSystem.Reset',
-                'ResetType@Redfish.AllowableValues': [
-                    'On',
-                    'ForceOff',
-                    'ForceRestart',
+        "Actions": {
+            "#ComputerSystem.Reset": {
+                "target": "/redfish/v1/Systems/" + name +
+                          "/Actions/ComputerSystem.Reset",
+                "ResetType@Redfish.AllowableValues": [
+                    "On",
+                    "ForceOff",
+                    "ForceRestart",
                 ],
             },
-            '#ComputerSystem.Update': {
-                'target': '/redfish/v1/Systems/' + name +
-                          '/Actions/ComputerSystem.Update',
-                'Image@Redfish.AllowableValues': [
-                    '/redfish/v1/Images/' + key for key in IMAGES.keys()
+            "#ComputerSystem.Update": {
+                "target": "/redfish/v1/Systems/" + name +
+                          "/Actions/ComputerSystem.Update",
+                "Image@Redfish.AllowableValues": [
+                    "/redfish/v1/Images/" + key for key in IMAGES.keys()
                 ],
             },
-            '#ComputerSystem.SetGpio': {
-                'target': '/redfish/v1/Systems/' + name +
-                          '/Actions/ComputerSystem.SetGpio',
-                'GpioState@Redfish.AllowableValues': [
-                    key + '=' + val for key in system['gpios'].keys()
-                    for val in ('0', '1')
+            "#ComputerSystem.SetGpio": {
+                "target": "/redfish/v1/Systems/" + name +
+                          "/Actions/ComputerSystem.SetGpio",
+                "GpioState@Redfish.AllowableValues": [
+                    key + "=" + val for key in system["gpios"].keys()
+                    for val in ("0", "1")
                 ],
             },
         },
-        'Update': {
-            'Image': system.get('update_image', ''),
-            'Status': system.get('update_status', ''),
+        "Update": {
+            "Image": system.get("update_image", ""),
+            "Status": system.get("update_status", ""),
         },
     }
 
-@app.post('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Reset')
+
+@app.post("/redfish/v1/Systems/<name>/Actions/ComputerSystem.Reset")
 def post_ComputerSystem_Reset_name(name):
     system = SYSTEMS.get(name)
     try:
@@ -334,17 +364,18 @@ def post_ComputerSystem_Reset_name(name):
     except json.decoder.JSONDecodeError:
         data = {}
 
-    reset_type = data.get('ResetType', '')
-    if reset_type == 'On':
+    reset_type = data.get("ResetType", "")
+    if reset_type == "On":
         poweron(system)
-    elif reset_type == 'ForceOff':
+    elif reset_type == "ForceOff":
         poweroff(system)
-    elif reset_type == 'ForceRestart':
+    elif reset_type == "ForceRestart":
         reset(system)
     else:
         bottle.abort(400)
 
-@app.post('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update')
+
+@app.post("/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update")
 def post_ComputerSystem_Update_name(name):
     system = SYSTEMS.get(name)
     try:
@@ -352,37 +383,41 @@ def post_ComputerSystem_Update_name(name):
     except json.decoder.JSONDecodeError:
         data = {}
 
-    image = data.get('Image', '')
+    image = data.get("Image", "")
     if image:
-        if ((os.path.dirname(image) != '/redfish/v1/Images' or
+        if ((os.path.dirname(image) != "/redfish/v1/Images" or
              os.path.basename(image) not in IMAGES.keys())):
             bottle.abort(400)
-        system['update_image'] = image
-        system['update_status'] = 'Pending'
+        system["update_image"] = image
+        system["update_status"] = "Pending"
 
     reset(system, update=True)
 
-@app.get('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update')
+
+@app.get("/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update")
 def get_ComputerSystem_Update_name(name):
     system = SYSTEMS.get(name)
     return {
-        '@odata.id': '/redfish/v1/Systems/' + name +
-                     '/Actions/ComputerSystem.Update',
-        'Image': system.get('update_image', ''),
-        'Status': system.get('update_status', ''),
+        "@odata.id": "/redfish/v1/Systems/" + name +
+                     "/Actions/ComputerSystem.Update",
+        "Image": system.get("update_image", ""),
+        "Status": system.get("update_status", ""),
     }
 
-@app.delete('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update')
+
+@app.delete("/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update")
 def delete_ComputerSystem_Update_name(name):
     system = SYSTEMS.get(name)
-    system['update_image'] = ''
-    system['update_status'] = ''
+    system["update_image"] = ""
+    system["update_status"] = ""
 
-@app.get('/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update.Delete')
+
+@app.get("/redfish/v1/Systems/<name>/Actions/ComputerSystem.Update.Delete")
 def get_ComputerSystem_Update_Delete_name(name):
     delete_ComputerSystem_Update_name(name)
 
-@app.post('/redfish/v1/Systems/<name>/Actions/ComputerSystem.SetGpio')
+
+@app.post("/redfish/v1/Systems/<name>/Actions/ComputerSystem.SetGpio")
 def post_ComputerSystem_SetGpio_name(name):
     system = SYSTEMS.get(name)
     try:
@@ -390,49 +425,50 @@ def post_ComputerSystem_SetGpio_name(name):
     except json.decoder.JSONDecodeError:
         data = {}
 
-    gpio_state = data.get('GpioState', '')
+    gpio_state = data.get("GpioState", "")
     try:
-        name, value = gpio_state.split('=', 1)
-        if name not in system['gpios'] or value not in ('0', '1'):
+        name, value = gpio_state.split("=", 1)
+        if name not in system["gpios"] or value not in ("0", "1"):
             bottle.abort(400)
         GPIOS.set_value(system, name, int(value))
     except ValueError:
         bottle.abort(400)
 
+
 # -----------------------------------------------------------------------------
 # Main entry point
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--debug', action='store_true')
-    parser.add_argument('-r', '--reloader', action='store_true')
+    parser.add_argument("-d", "--debug", action="store_true")
+    parser.add_argument("-r", "--reloader", action="store_true")
     args = parser.parse_args()
 
     # Setup the logger
-    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S',
+    logging.basicConfig(format="%(asctime)s : %(levelname)s : %(message)s",
+                        datefmt="%Y-%m-%d %H:%M:%S",
                         level=logging.DEBUG if args.debug else logging.INFO)
 
     # Load the config file
     configs = None
-    for f in ['./bottle-pi.config', '/etc/bottle-pi.config']:
+    for f in ["./bottle-pi.config", "/etc/bottle-pi.config"]:
         if os.path.exists(f):
-            with open(f) as fh:
+            with open(f, encoding="utf-8") as fh:
                 configs = yaml.load(fh, Loader=yaml.SafeLoader)
             break
     if configs is None:
-        raise Exception('Unable to load bottle-pi.config')
+        raise Exception("Unable to load bottle-pi.config")
 
     # Discover the available systems and images
     SYSTEMS = SystemCollection(configs)
     IMAGES = ImageCollection(configs)
 
     # Request the GPIOs
-    GPIOS = GpioCollection('gpiochip0')
+    GPIOS = GpioCollection("gpiochip0")
     for _, system in SYSTEMS.items():
-        GPIOS.request(system, 'power', gpiod.LINE_REQ_DIR_OUT)
-        GPIOS.request(system, 'gpio4', gpiod.LINE_REQ_DIR_OUT)
+        GPIOS.request(system, "power", gpiod.LINE_REQ_DIR_OUT)
+        GPIOS.request(system, "gpio4", gpiod.LINE_REQ_DIR_OUT)
 
     # Run the bottle server
-    bottle.run(app, host='0.0.0.0', port=configs['port'], server='cheroot',
+    bottle.run(app, host="0.0.0.0", port=configs["port"], server="cheroot",
                debug=args.debug, reloader=args.reloader)
