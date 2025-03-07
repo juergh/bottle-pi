@@ -10,12 +10,14 @@ with open('bottle-pi.config') as fh:
 
 for serial, system in configs['systems'].items():
     hostname = system['hostname']
-    hosts = [hostname]
-
     if hostname.split('-')[1] in ('4b', 'cm4', '5b', 'cm5'):
         # RAM alias for devices with different RAM configurations
         ram = system.get('features').get('ram').lower()
-        hosts.append(hostname.replace('-rev', '-{}-rev'.format(ram)))
+        real_hostname = hostname.replace('-rev', '-{}-rev'.format(ram))
+        hosts = [hostname, real_hostname]
+    else:
+        real_hostname = hostname
+        hosts = [hostname]
 
     print("""Host {}
   HostName {}
@@ -23,4 +25,4 @@ for serial, system in configs['systems'].items():
   StrictHostKeyChecking no
   UserKnownHostsFile /dev/null
   ConnectTimeout 1
-""".format((' ').join(hosts), hostname))
+""".format((' ').join(hosts), real_hostname))
