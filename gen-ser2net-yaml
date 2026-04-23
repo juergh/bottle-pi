@@ -11,7 +11,7 @@ print("""%YAML 1.1
 ---
 # ser2net configuration file
 
-define: &banner \\r\\nser2port port \\p device \\d\\r\\n\\r\\n
+define: &banner Connected to port \\N(\\d)\\r\\n
 """)
 
 slots = {}
@@ -24,12 +24,10 @@ for _, system in configs['systems'].items():
         continue
     slots[slot] = 1
 
-    print("""connection: &slot{}
+    print("""connection: &slot-{}
     accepter: tcp,{}
-    enable: on
+    connector: serialdev,{},115200N81
     options:
         banner: *banner
         kickolduser: true
-        telnet-brk-on-sync: true
-    connector: serialdev,{},115200n81,local
 """.format(slot, tcpport, serialport))
